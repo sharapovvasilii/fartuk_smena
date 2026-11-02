@@ -292,6 +292,14 @@
   }
   .vote-pick[aria-pressed="true"] { border-color: var(--accent); background: #fdeee8; font-weight: 600; }
   .vote-pick .mark { color: var(--accent); font-weight: 700; }
+  .vote-prize { border: 1.5px solid var(--accent); }
+  /* Сотрудники и должности (только владелец) */
+  .staff-row { border-bottom: 1px solid var(--field); }
+  .staff-row:last-child { border-bottom: none; }
+  .staff-row select { width: 52%; flex: none; }
+  .staff-row select.empty { color: var(--hint); border-color: var(--accent); }
+  .vote-prize .prize-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .vote-prize p { margin: 6px 0 0; font-size: 14px; line-height: 1.4; }
   .scale-row { padding: 6px 0; }
   .scale-top { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
   .scale-top b { font-weight: 700; }
@@ -469,6 +477,7 @@
   <button type="button" class="seg-btn" data-tab="repair" hidden>Ремонт</button>
   <button type="button" class="seg-btn" data-tab="rev" hidden>Выручка</button>
   <button type="button" class="seg-btn" data-tab="pay" hidden>Зарплата</button>
+  <button type="button" class="seg-btn" data-tab="staff" hidden>Сотрудники</button>
   <button type="button" class="seg-btn" data-tab="own" hidden>Затраты</button>
 </div>
 
@@ -721,6 +730,15 @@
   <div id="ownerBody"></div>
 </main>
 
+<!-- Сотрудники и должности (только роль «владелец») -->
+<main id="staffScreen" hidden>
+  <header>
+    <h1>Сотрудники</h1>
+    <div class="sub">Все сотрудники и их должности</div>
+  </header>
+  <div id="staffBody"></div>
+</main>
+
 <!-- Выручка (владелец и управляющий) -->
 <main id="revScreen" hidden>
   <header>
@@ -764,7 +782,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.23';
+const APP_VERSION = '2026-11-02.25';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1692,6 +1710,7 @@ function showScreen(name) {
   $('repairScreen').hidden = name !== 'repair';
   $('billScreen').hidden = name !== 'bills';
   $('ownerScreen').hidden = name !== 'owner';
+  $('staffScreen').hidden = name !== 'staff';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
   try {
@@ -1771,7 +1790,8 @@ function myTgId() {
 
 // Телефон помнит последний ответ вкладок «Инвентаризация», «Ремонт», «Затраты»:
 // показываем сразу, свежее подтягиваем в фоне. Только для этого же человека.
-const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1', bills: 'fartuk-bills-v1' };
+const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1', bills: 'fartuk-bills-v1',
+  staff: 'fartuk-staff-v1' };
 function tabCacheGet(tab) {
   const c = storage(ls => JSON.parse(ls.getItem(TAB_KEYS[tab]) || 'null'));
   return c && c.uid === myTgId() ? c.data : null;
@@ -1791,6 +1811,7 @@ function preloadTabs(role, boss) {
     loadRepairs();
     if (role !== 'buyer') loadBills();   // снабженец счета не видит
     if (role === 'owner' || role === 'buyer') loadInv();
+    if (boss) loadStaffList();
   }, 1500);
 }
 
@@ -1883,13 +1904,13 @@ async function init() {
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
 const TAB_SCREENS = { report: 'form', order: 'order', bills: 'bills', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
-  rev: 'revenue', pay: 'salary', own: 'owner' };
+  rev: 'revenue', pay: 'salary', own: 'owner', staff: 'staff' };
 let curTab = 'report';
 
 // canReport — вкладка «Отчёт» только у администраторов, владельца и управляющего
 function setupTabs(role, boss, canReport) {
   let show = role === 'owner'
-    ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
+    ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['staff', 'own'] : [])
     : role === 'buyer' ? ['buy', 'inv', 'repair']
     : ['report', 'order', 'bills', 'vote', 'repair'];
   if (canReport === false) show = show.filter(t => t !== 'report');
@@ -1926,6 +1947,7 @@ function setTab(tab) {
   if (tab === 'repair') loadRepairs();
   if (tab === 'bills') loadBills();
   if (tab === 'own') loadOwner();
+  if (tab === 'staff') loadStaffList();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
   if (tab === 'rev' && !revLoaded) pickPreset('week');
@@ -3114,6 +3136,16 @@ function renderVote() {
   if (!v) { body.replaceChildren(el('div', 'loading-note', 'Загружаю…')); return; }
   const out = [];
 
+  // Карточка про премию — видят все
+  const prize = el('div', 'card vote-prize');
+  prize.append(
+    el('div', 'prize-title', '🏆 Лучший сотрудник месяца — 10 000 ₽'),
+    el('p', null, 'Каждый месяц один сотрудник получает премию 10 000 ₽. Победителя выбирает управляющий.'),
+    el('p', null, 'Итоги голосования также учитываются и могут повлиять на выбор кандидата на премию.'),
+    el('p', null, 'Старайтесь голосовать после каждой смены. Так вы поддержите коллег, которые стараются. Чем больше голосов, тем заметнее хорошая работа!')
+  );
+  out.push(prize);
+
   const card = el('div', 'card');
   if (v.canVote) {
     $('voteSub').textContent = `Смена ${ddmm(v.date)} · кто был хорош?`;
@@ -3189,6 +3221,84 @@ async function castVote(name) {
 }
 
 /* ---------- вкладка «Владельцы»: траты на бизнес ---------- */
+
+/* ---------- сотрудники и должности (только владелец) ---------- */
+
+let staffData = null;   // { staff: [{ name, pos }], positions: [...] }
+
+async function loadStaffList() {
+  if (!staffData) {
+    const cached = tabCacheGet('staff');
+    if (cached) { staffData = cached; renderStaffList(); }
+    else $('staffBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
+  try {
+    const res = await fetch(`${API_URL}?action=staffList&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    tabCachePut('staff', data);
+    if (JSON.stringify(data) !== JSON.stringify(staffData)) { staffData = data; renderStaffList(); }
+  } catch (e) {
+    if (!staffData) $('staffBody').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+const capFirst = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+function renderStaffList() {
+  const d = staffData;
+  const out = [];
+  const empty = d.staff.filter(s => !s.pos).length;
+  out.push(el('div', 'note', `Всего: ${d.staff.length}` + (empty ? ` · без должности: ${empty}` : '') +
+    '. Нажмите на должность, чтобы выбрать или поменять.'));
+  const card = el('div', 'card');
+  d.staff.forEach(s => {
+    const row = el('div', 'row staff-row');
+    const sel = el('select');
+    if (!s.pos) {
+      const o = el('option', null, 'Выберите…');
+      o.value = ''; o.disabled = true; o.selected = true;
+      sel.appendChild(o);
+      sel.classList.add('empty');
+    }
+    const list = d.positions.includes(s.pos) || !s.pos ? d.positions : d.positions.concat([s.pos]);
+    list.forEach(p => {
+      const o = el('option', null, capFirst(p));
+      o.value = p;
+      if (p === s.pos) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => setStaffPos(s, sel));
+    row.append(el('span', null, s.name), sel);
+    card.appendChild(row);
+  });
+  if (!d.staff.length) card.appendChild(el('div', 'note', 'На листе «Сотрудники» пока никого нет.'));
+  out.push(card);
+  $('staffBody').replaceChildren(...out);
+}
+
+async function setStaffPos(s, sel) {
+  const pos = sel.value;
+  const undo = () => { sel.value = s.pos; };
+  if (busy) return undo();
+  const text = s.pos
+    ? `Поменять должность: ${s.name}\n«${capFirst(s.pos)}» → «${capFirst(pos)}»?`
+    : `Назначить должность: ${s.name} — «${capFirst(pos)}»?`;
+  if (!(await confirm_(text))) return undo();
+  if (!inTg || !apiReady) { await alert_('Откройте приложение через бота в Телеграме.'); return undo(); }
+  setBusy(true);
+  try {
+    staffData = await api({ action: 'staffPos', name: s.name, pos });
+    tabCachePut('staff', staffData);
+    renderStaffList();
+    haptic('success');
+  } catch (e) {
+    undo();
+    await alert_('Не получилось: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
+}
 
 let ownerData = null;
 let ownerWho = '';
