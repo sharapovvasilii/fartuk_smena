@@ -104,7 +104,7 @@
   .staff-top .s-role {
     width: 100%; min-width: 0; text-align: left; text-align-last: left; font-weight: 600; font-size: 14px;
     padding: 7px 28px 7px 10px; border: 1px solid transparent; border-radius: 8px;
-    background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a9a9a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
   }
   /* «Кто» и время — в одной строке */
   .staff .s-name { width: 100%; min-width: 0; text-align: left; text-align-last: left; margin: 0; font-size: 14px;
@@ -138,6 +138,10 @@
   .cgroup .cnt { color: var(--accent); font-weight: 700; margin-left: 6px; }
   .cgroup summary span { flex: 1; }
   .cgroup .cat-typed { min-height: 44px; margin: 0 0 10px; font-size: 14px; }
+  /* Смахнуть кнопку вбок — удалить (владелец и управляющий) */
+  .chip.swipe { touch-action: pan-y; transition: background .15s; user-select: none; -webkit-user-select: none; }
+  .chip.del-ready { background: var(--err) !important; }
+  .swipe-hint { font-size: 12px; margin: 0 0 4px; }
   .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 24px; line-height: 1; padding: 0 12px; }
   .cgroup summary { align-items: center; }
   .cat-tools { display: flex; justify-content: flex-end; }
@@ -637,7 +641,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.7';
+const APP_VERSION = '2026-11-02.8';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1006,11 +1010,13 @@ function renderChips(box, inReport) {
       b.type = 'button'; b.dataset.item = item;
       b.setAttribute('aria-pressed', keep.has(item) ? 'true' : 'false');
       b.addEventListener('click', () => {
+        if (b.dataset.swiped) { delete b.dataset.swiped; return; }   // только что смахивали — это не нажатие
         b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
         haptic('select');
         updateCounts(d);
         onChange();
       });
+      if (canEditCats()) enableSwipeDelete(b, item);
       list.appendChild(b);
     });
     const typed = el('textarea', 'cat-typed');
@@ -1024,6 +1030,39 @@ function renderChips(box, inReport) {
     updateCounts(d);
   });
   if (groups.length === 1 && !byGroup[OTHER_GROUP].length) box.prepend(el('p', 'note', 'Список товаров загрузится из таблицы.'));
+  else if (canEditCats()) box.prepend(el('p', 'note swipe-hint', 'Чтобы убрать кнопку товара — зажмите её и смахните вбок.'));
+}
+
+// Убрать кнопку товара: зажать и смахнуть вбок (владелец и управляющий)
+const SWIPE_DELETE = 90;   // на сколько пикселей смахнуть, чтобы удалить
+function enableSwipeDelete(b, item) {
+  b.classList.add('swipe');
+  let x0 = null, y0 = 0, dx = 0, id = null;
+  const reset = () => { b.style.transform = ''; b.style.opacity = ''; b.classList.remove('del-ready'); };
+  b.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; dx = 0; id = e.pointerId; });
+  b.addEventListener('pointermove', e => {
+    if (x0 === null || e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    if (Math.abs(e.clientY - y0) > 30 && Math.abs(dx) < 20) { x0 = null; reset(); return; }   // листают вниз
+    if (Math.abs(dx) < 8) return;
+    try { b.setPointerCapture(id); } catch (err) {}
+    b.style.transform = `translateX(${dx}px)`;
+    b.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 250));
+    const ready = Math.abs(dx) >= SWIPE_DELETE;
+    if (ready !== b.classList.contains('del-ready')) { b.classList.toggle('del-ready', ready); if (ready) haptic('medium'); }
+  });
+  const end = async () => {
+    if (x0 === null) return;
+    x0 = null;
+    if (Math.abs(dx) >= 8) { b.dataset.swiped = '1'; setTimeout(() => { delete b.dataset.swiped; }, 400); }
+    const go = Math.abs(dx) >= SWIPE_DELETE;
+    reset();
+    if (!go) return;
+    if (!(await confirm_(`Убрать кнопку «${item}» из заявки? Товар удалится с листа «Товары».`))) return;
+    catPost({ action: 'itemDelete', name: item });
+  };
+  b.addEventListener('pointerup', end);
+  b.addEventListener('pointercancel', () => { x0 = null; reset(); });
 }
 
 function linesOf(s) { return String(s || '').split('\n').map(x => x.trim()).filter(Boolean); }
