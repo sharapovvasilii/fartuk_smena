@@ -89,8 +89,12 @@
   .staff-top { display: flex; align-items: center; gap: 6px; }
   .staff-top .s-role { flex: 1; width: auto; text-align: left; text-align-last: left; font-weight: 600; background: transparent; padding-left: 0; }
   .staff .s-name { width: 100%; text-align: left; text-align-last: left; margin: 2px 0 4px; }
-  .staff .s-time { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .staff .s-pay { font-size: 12px; color: var(--hint); text-align: right; }
+  /* «Кто» и время — в одной строке */
+  .staff .s-line { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .staff .s-line .s-name { flex: 1; min-width: 0; width: auto; margin: 0; font-size: 14px; }
+  .staff .s-line .pair { flex: none; gap: 3px; }
+  .staff .s-line .pair input { width: 76px; padding: 7px 2px; font-size: 14px; }
+  .staff .s-pay { font-size: 12px; color: var(--hint); text-align: right; min-height: 16px; }
   .staff .s-pay b { color: var(--text); font-weight: 600; }
   .senior-tag { color: var(--accent); font-size: 12px; font-weight: 700; }
 
@@ -215,6 +219,36 @@
     border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
   .today-note { margin: 2px 0 8px; color: var(--warn); font-size: 13px; }
 
+  /* Голосование и траты владельцев */
+  .vote-pick {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+    font: inherit; font-size: 16px; text-align: left; color: var(--text);
+    background: var(--field); border: 1.5px solid transparent; border-radius: 12px; padding: 12px 14px; margin: 6px 0;
+  }
+  .vote-pick[aria-pressed="true"] { border-color: var(--accent); background: #fdeee8; font-weight: 600; }
+  .vote-pick .mark { color: var(--accent); font-weight: 700; }
+  .scale-row { padding: 6px 0; }
+  .scale-top { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
+  .scale-top b { font-weight: 700; }
+  .scale-bar { height: 10px; border-radius: 5px; background: var(--field); margin-top: 4px; overflow: hidden; }
+  .scale-bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .scale-row.first .scale-bar i { background: var(--ok); }
+  .own-add { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+  .own-add select { width: 100%; text-align: left; text-align-last: left; }
+  .own-add input { width: 100%; }
+  .own-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f0f0ef; }
+  .own-item:first-child { border-top: 0; }
+  .own-item .own-main { flex: 1; min-width: 0; }
+  .own-item small { display: block; color: var(--hint); font-size: 12px; }
+  .own-item .own-sum { font-weight: 700; white-space: nowrap; }
+
+  /* Название магазина в списке закупки — кнопка с адресом */
+  .psec-title.store-link {
+    background: none; border: 0; padding: 4px 0; font: inherit; font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .03em; color: var(--accent); text-align: left; cursor: pointer;
+  }
+  .psec-title.store-link::after { content: ' ›'; }
+
   /* Отделы списка закупки */
   .drag-hint { font-size: 12px; margin: -4px 2px 8px; }
   .psec { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
@@ -315,9 +349,11 @@
 <div class="card seg tabs" id="tabs" hidden>
   <button type="button" class="seg-btn" data-tab="report" hidden>Отчёт</button>
   <button type="button" class="seg-btn" data-tab="order" hidden>Заявка</button>
+  <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="rev" hidden>Выручка</button>
   <button type="button" class="seg-btn" data-tab="pay" hidden>Зарплата</button>
+  <button type="button" class="seg-btn" data-tab="own" hidden>Владельцы</button>
 </div>
 
 <main id="form">
@@ -387,11 +423,11 @@
 </div>
 <div class="card">
   <h3>Морсы и лимонады</h3>
-  <div class="note" style="font-size:12px;margin:0 0 4px">+ 10 ₽ за бутылку тому, кто сделал. Нужно фото для подтверждения.</div>
+  <div class="note" style="font-size:12px;margin:0 0 4px">+ 20 ₽ за бутылку тому, кто сделал. Фото обязательно — без него премия не начисляется.</div>
   <div id="drinks"></div>
   <button type="button" class="link" id="addDrink">+ Кто сделал</button>
-  <div id="drinkPhotoBlock" hidden>
-    <div class="ph-head"><b>Фото морсов и лимонадов</b><small id="drinkPhotoNote">Чтобы было видно количество бутылок</small></div>
+  <div id="drinkPhotoBlock">
+    <div class="ph-head"><b>Фото морсов и лимонадов</b><small id="drinkPhotoNote">Докажите фото: чтобы было видно все бутылки. Обязательно, если указали бутылки</small></div>
     <div class="photos" id="drinkPhotos"></div>
     <input type="file" id="drinkPhotoInput" accept="image/*" multiple hidden>
   </div>
@@ -503,6 +539,24 @@
   <div id="payBody"></div>
 </main>
 
+<!-- Голосование: кто был хорош на смене -->
+<main id="voteScreen" hidden>
+  <header>
+    <h1>Голосование</h1>
+    <div class="sub" id="voteSub">Кто был хорош на смене</div>
+  </header>
+  <div id="voteBody"></div>
+</main>
+
+<!-- Владельцы: траты на бизнес (только роль «владелец») -->
+<main id="ownerScreen" hidden>
+  <header>
+    <h1>Владельцы</h1>
+    <div class="sub">Кто и сколько потратил на бизнес</div>
+  </header>
+  <div id="ownerBody"></div>
+</main>
+
 <!-- Выручка (владелец и управляющий) -->
 <main id="revScreen" hidden>
   <header>
@@ -539,19 +593,18 @@ const SHIFT_FROM = '10:00';
 const SHIFT_TO = '21:00';
 
 // Кто обычно на смене — такие строки появляются в новом отчёте
-const DEFAULT_ROWS = ['Администратор', 'Администратор', 'Пиццмейкер', 'Пиццмейкер',
-  'Пом. пиццмейкера', 'Пом. пиццмейкера', 'Повар', 'Повар'];
+const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'Пом. пиццмейкера', 'Повар'];
 
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.2';
+const APP_VERSION = '2026-11-02.3';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
 const inTg = !!initData;
 const apiReady = !API_URL.startsWith('PASTE');
-const DRAFT_KEY = 'fartuk-draft-v1';
+const DRAFT_KEY = 'fartuk-draft-v2';   // v2: старые черновики с лишними строками «Повар» не подтягиваем
 const ME_KEY = 'fartuk-me';
 const $ = id => document.getElementById(id);
 
@@ -738,16 +791,16 @@ function addStaffRow(d = {}) {
   const other = el('input', 'full');
   other.placeholder = 'Фамилия и имя'; other.hidden = true;
 
-  const time = el('div', 's-time');
+  const line = el('div', 's-line');
   const pair = el('div', 'pair');
   const from = el('input'); from.type = 'time'; from.value = d.from || SHIFT_FROM;
   const to = el('input'); to.type = 'time'; to.value = d.to || SHIFT_TO;
   from.setAttribute('aria-label', 'Пришёл'); to.setAttribute('aria-label', 'Ушёл');
   pair.append(from, document.createTextNode('-'), to);
   const pay = el('div', 's-pay');
-  time.append(pair, pay);
+  line.append(name, pair);
 
-  box.append(top, name, other, time);
+  box.append(top, line, other, pay);
   $('staffRows').appendChild(box);
   const r = { box, role, name, other, from, to, pay };
   staffRows.push(r);
@@ -1061,7 +1114,6 @@ function recalc() {
     st.className = 'status warn';
     st.textContent = `⚠️ Не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽ (должно быть ${fmt(r.cashExpected)} ₽)`;
   }
-  $('drinkPhotoBlock').hidden = !(r.drinksTotal > 0) && !drinkPhotos.list.length;
   updatePayHints(r);
 }
 
@@ -1183,6 +1235,8 @@ function showScreen(name) {
   $('buyer').hidden = name !== 'buyer';
   $('revScreen').hidden = name !== 'revenue';
   $('payScreen').hidden = name !== 'salary';
+  $('voteScreen').hidden = name !== 'vote';
+  $('ownerScreen').hidden = name !== 'owner';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
   try {
@@ -1251,6 +1305,7 @@ function gate(state, detail) {
 
 const INIT_KEY = 'fartuk-init-v1';
 let shownRole = null;          // какой экран уже показан: 'staff', 'owner', 'buyer' или null
+let shownBoss = null;          // показана ли вкладка «Владельцы»
 let purchaseTouched = false;   // в списке закупки уже что-то нажали — не затираем старым ответом
 let stores = [];               // магазины с листа «Магазины»
 
@@ -1261,7 +1316,7 @@ function myTgId() {
 
 function saveInitCache(data) {
   storage(ls => ls.setItem(INIT_KEY, JSON.stringify({
-    uid: myTgId(), role: data.role, name: data.name, config: data.config,
+    uid: myTgId(), role: data.role, boss: data.boss, vote: data.vote, name: data.name, config: data.config,
     purchase: data.purchase, sections: data.sections, stock: data.stock, stores: data.stores,
   })));
 }
@@ -1295,7 +1350,8 @@ function showApp(data, fresh) {
     renderPurchase();
     renderStockView(data.stock);
   }
-  if (firstShow) setupTabs(data.role);
+  if (data.vote) { voteData = data.vote; renderVote(); }
+  if (firstShow || shownBoss !== !!data.boss) { setupTabs(data.role, !!data.boss); shownBoss = !!data.boss; }
   shownRole = data.role;
   if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
   // Выручку и зарплату — заранее, в фоне: к открытию вкладки цифры уже готовы
@@ -1331,10 +1387,13 @@ async function init() {
 
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
-const TAB_SCREENS = { report: 'form', order: 'order', buy: 'buyer', rev: 'revenue', pay: 'salary' };
+const TAB_SCREENS = { report: 'form', order: 'order', vote: 'vote', buy: 'buyer', rev: 'revenue', pay: 'salary', own: 'owner' };
+let curTab = 'report';
 
-function setupTabs(role) {
-  const show = role === 'owner' ? ['report', 'order', 'buy', 'rev', 'pay'] : ['report', 'order'];
+function setupTabs(role, boss) {
+  const show = role === 'owner'
+    ? ['report', 'order', 'vote', 'buy', 'rev', 'pay'].concat(boss ? ['own'] : [])
+    : ['report', 'order', 'vote'];
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
     b.hidden = !show.includes(b.dataset.tab);
@@ -1344,7 +1403,7 @@ function setupTabs(role) {
   bar.classList.toggle('scroll', scroll);
   bar.style.gridTemplateColumns = scroll ? '' : `repeat(${show.length}, 1fr)`;
   bar.hidden = false;
-  markTab('report');
+  markTab(curTab);
 }
 
 function markTab(tab) {
@@ -1358,9 +1417,12 @@ function markTab(tab) {
 }
 
 function setTab(tab) {
+  curTab = tab;
   markTab(tab);
   showScreen(TAB_SCREENS[tab]);
   haptic('select');
+  if (tab === 'vote') renderVote();
+  if (tab === 'own') loadOwner();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
   if (tab === 'rev' && !revLoaded) pickPreset('week');
@@ -1475,6 +1537,47 @@ function openLink(url) {
 
 function closeItem() { $('itemSheet').hidden = true; }
 
+// Карточка магазина: адрес, часы, телефон, 2ГИС
+function storeCard(s) {
+  const card = el('div', 'store');
+  card.appendChild(el('b', null, '🏪 ' + s.name));
+  card.appendChild(el('div', s.address ? '' : 'muted', s.address ? '📍 ' + s.address : 'Адрес не указан — лист «Магазины»'));
+  if (s.hours) card.appendChild(el('div', null, '🕘 ' + s.hours));
+  if (s.phone) {
+    const d = el('div', null, '📞 ');
+    const a = el('a', null, s.phone);
+    a.href = 'tel:' + s.phone.replace(/[^\d+]/g, '');
+    d.appendChild(a);
+    card.appendChild(d);
+  }
+  const map = el('button', 'btn btn-small map-btn', 'Открыть в 2ГИС');
+  map.type = 'button';
+  map.addEventListener('click', () => openLink(mapLink(s)));
+  card.appendChild(map);
+  return card;
+}
+
+// Нажали на название магазина в списке закупки — показываем адрес
+function openStore(s) {
+  haptic('light');
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(storeCard(s));
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.appendChild(close);
+  $('itemSheet').hidden = false;
+}
+
+const normStore = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+function storeOfSection(name) {
+  const n = normStore(name);
+  if (!n) return null;
+  return stores.find(s => normStore(s.name) === n) ||
+    stores.find(s => { const m = normStore(s.name); return m && (m.indexOf(n) === 0 || n.indexOf(m) === 0); }) || null;
+}
+
 function openItem(x) {
   haptic('light');
   const body = $('itemSheetBody');
@@ -1487,25 +1590,7 @@ function openItem(x) {
     s.appendChild(el('div', 'muted', 'Магазин не указан. Его можно вписать на листе «Товары», столбец «Магазин».'));
     body.appendChild(s);
   }
-  list.forEach(name => {
-    const s = storeInfo(name);
-    const card = el('div', 'store');
-    card.appendChild(el('b', null, '🏪 ' + s.name));
-    card.appendChild(el('div', s.address ? '' : 'muted', s.address ? '📍 ' + s.address : 'Адрес не указан — лист «Магазины»'));
-    if (s.hours) card.appendChild(el('div', null, '🕘 ' + s.hours));
-    if (s.phone) {
-      const d = el('div', null, '📞 ');
-      const a = el('a', null, s.phone);
-      a.href = 'tel:' + s.phone.replace(/[^\d+]/g, '');
-      d.appendChild(a);
-      card.appendChild(d);
-    }
-    const map = el('button', 'btn btn-small map-btn', 'Открыть в 2ГИС');
-    map.type = 'button';
-    map.addEventListener('click', () => openLink(mapLink(s)));
-    card.appendChild(map);
-    body.appendChild(card);
-  });
+  list.forEach(name => body.appendChild(storeCard(storeInfo(name))));
   const main = el('button', 'btn', x.bought ? 'Вернуть в «Нужно купить»' : '✓ Куплено');
   main.type = 'button';
   main.addEventListener('click', () => { closeItem(); x.bought ? returnItem(x) : markBought(x); });
@@ -1550,7 +1635,9 @@ function renderPurchase() {
     const items = need.filter(x => (known.has(x.sec) ? x.sec : 'other') === s.id).sort((a, b) => a.ord - b.ord);
     const card = el('div', 'psec' + (items.length ? '' : ' empty'));
     const head = el('div', 'psec-head');
-    const title = el('div', 'psec-title', s.name);
+    const shop = editingSections ? null : storeOfSection(s.name);
+    const title = el(shop ? 'button' : 'div', 'psec-title' + (shop ? ' store-link' : ''), s.name);
+    if (shop) { title.type = 'button'; title.addEventListener('click', () => openStore(shop)); }
     const tools = el('div', 'psec-tools');
     const saved = !String(s.id).startsWith('new-');
     tools.append(
@@ -2135,27 +2222,42 @@ function unitLabel(u) {
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 function monthName(ym) { return ym ? MONTHS[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4) : ''; }
 
+let bestMonth = '';   // какой месяц открыт в окне выбора сотрудника месяца
+
 function renderBest(d) {
   const card = el('div', 'card');
-  card.appendChild(el('h3', null, '🏆 Сотрудник месяца'));
+  card.appendChild(el('h3', null, 'Сотрудник месяца 🏆'));
   card.appendChild(el('div', 'note', `Премия ${fmt(d.bestBonus)} ₽. Выбирает управляющий.`));
-  (d.best || []).forEach(b => {
-    const row = el('label', 'row');
-    row.appendChild(el('span', null, monthName(b.month)));
-    const sel = el('select');
-    sel.dataset.other = 'no';
-    fillPeople(sel, '— не выбран —', [['Сотрудники', d.staff || []]]);
-    if (b.name) { if (![...sel.options].some(o => o.value === b.name)) sel.add(new Option(b.name, b.name)); sel.value = b.name; }
-    sel.addEventListener('change', async () => {
-      const name = sel.value;
-      const ok = await payPost({ action: 'best', month: b.month, name },
-        name ? `Сотрудник месяца за ${monthName(b.month)} — ${name}? Премия ${fmt(d.bestBonus)} ₽, в чат придёт сообщение.`
-          : `Отменить выбор сотрудника месяца за ${monthName(b.month)}?`);
-      if (!ok) sel.value = b.name;
-    });
-    row.appendChild(sel);
-    card.appendChild(row);
+  const picks = d.best || [];
+  if (!picks.length) return card;
+  if (!picks.some(b => b.month === bestMonth)) bestMonth = picks[0].month;
+  const b = picks.find(x => x.month === bestMonth);
+
+  // Месяц — окно с прокруткой
+  const mrow = el('label', 'row');
+  mrow.appendChild(el('span', null, 'Месяц'));
+  const msel = el('select');
+  picks.forEach(x => msel.add(new Option(monthName(x.month) + (x.name ? ' ✓' : ''), x.month)));
+  msel.value = bestMonth;
+  msel.addEventListener('change', () => { bestMonth = msel.value; renderPay(d); });
+  mrow.appendChild(msel);
+  card.appendChild(mrow);
+
+  const row = el('label', 'row');
+  row.appendChild(el('span', null, 'Сотрудник'));
+  const sel = el('select');
+  sel.dataset.other = 'no';
+  fillPeople(sel, 'Выбрать', [['Сотрудники', d.staff || []]]);
+  if (b.name) { if (![...sel.options].some(o => o.value === b.name)) sel.add(new Option(b.name, b.name)); sel.value = b.name; }
+  sel.addEventListener('change', async () => {
+    const name = sel.value;
+    const ok = await payPost({ action: 'best', month: b.month, name },
+      name ? `Сотрудник месяца за ${monthName(b.month)} — ${name}? Премия ${fmt(d.bestBonus)} ₽, в чат придёт сообщение.`
+        : `Отменить выбор сотрудника месяца за ${monthName(b.month)}?`);
+    if (!ok) sel.value = b.name;
   });
+  row.appendChild(sel);
+  card.appendChild(row);
   return card;
 }
 
@@ -2284,6 +2386,179 @@ function renderPay(d) {
 buildPresets('payPresets', PAY_PRESETS, pickPayPreset);
 $('payFrom').addEventListener('change', loadPayCustom);
 $('payTo').addEventListener('change', loadPayCustom);
+
+/* ---------- голосование: кто был хорош на смене ---------- */
+
+let voteData = null;     // ответ сервера: { date, open, canVote, me, candidates, mine, results }
+let voteMonth = 0;       // какой месяц шкалы показан: 0 — этот, 1 — прошлый
+
+function renderVote() {
+  const v = voteData;
+  const body = $('voteBody');
+  if (!v) { body.replaceChildren(el('div', 'loading-note', 'Загружаю…')); return; }
+  const out = [];
+
+  const card = el('div', 'card');
+  if (v.canVote) {
+    $('voteSub').textContent = `Смена ${ddmm(v.date)} · кто был хорош?`;
+    card.appendChild(el('div', 'note', 'Выберите коллегу со смены, кто, по-вашему, был лучше всех. Себя выбрать нельзя. Голос можно поменять.'));
+    v.candidates.forEach(name => {
+      const b = el('button', 'vote-pick');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', v.mine === name ? 'true' : 'false');
+      b.append(el('span', null, name), el('span', 'mark', v.mine === name ? '✓ ваш голос' : ''));
+      b.addEventListener('click', () => castVote(name));
+      card.appendChild(b);
+    });
+    if (!v.candidates.length) card.appendChild(el('div', 'note', 'На этой смене больше никого не было.'));
+  } else {
+    $('voteSub').textContent = 'Кто был хорош на смене';
+    const why = !v.date ? 'Отчётов пока нет — голосование откроется после первой смены.'
+      : !v.open ? `Голосование за смену ${ddmm(v.date)} закрыто. Откроется после следующего отчёта.`
+      : `В смене ${ddmm(v.date)} вас нет в списке — голосуют только те, кто на смене.`;
+    card.appendChild(el('div', 'note', why));
+  }
+  out.push(card);
+
+  // Шкала — только владельцу и управляющему
+  if (v.results) {
+    out.push(el('h2', 'sec', 'Результаты'));
+    const chips = el('div', 'chips');
+    v.results.forEach((m, i) => {
+      const c = el('button', 'chip', m.label);
+      c.type = 'button';
+      c.setAttribute('aria-pressed', i === voteMonth ? 'true' : 'false');
+      c.addEventListener('click', () => { voteMonth = i; renderVote(); });
+      chips.appendChild(c);
+    });
+    out.push(chips);
+    const m = v.results[voteMonth] || v.results[0];
+    const res = el('div', 'card');
+    if (!m.rows.length) {
+      res.appendChild(el('div', 'note', 'За этот месяц голосов пока нет.'));
+    } else {
+      res.appendChild(el('div', 'note', `Всего голосов: ${m.total}. Сверху лучшие.`));
+      const max = Math.max(1, ...m.rows.map(r => r.votes));
+      m.rows.forEach((r, i) => {
+        const row = el('div', 'scale-row' + (i === 0 ? ' first' : ''));
+        const top = el('div', 'scale-top');
+        top.append(el('span', null, (i === 0 ? '🥇 ' : '') + r.name), el('b', null, String(r.votes)));
+        const bar = el('div', 'scale-bar');
+        const fill = el('i');
+        fill.style.width = Math.max(4, Math.round(r.votes / max * 100)) + '%';
+        bar.appendChild(fill);
+        row.append(top, bar);
+        res.appendChild(row);
+      });
+    }
+    out.push(res);
+  }
+  body.replaceChildren(...out);
+}
+
+async function castVote(name) {
+  if (busy || !voteData || voteData.mine === name) return;
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  setBusy(true);
+  try {
+    const data = await api({ action: 'vote', name });
+    voteData = data.vote;
+    renderVote();
+    haptic('success');
+  } catch (e) {
+    await alert_('Не получилось проголосовать: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+/* ---------- вкладка «Владельцы»: траты на бизнес ---------- */
+
+let ownerData = null;
+let ownerWho = '';
+
+async function loadOwner() {
+  if (!ownerData) $('ownerBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  try {
+    const res = await fetch(`${API_URL}?action=ownerExp&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    ownerData = data;
+    renderOwner();
+  } catch (e) {
+    if (!ownerData) $('ownerBody').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+async function ownerPost(body, confirmText) {
+  if (busy) return false;
+  if (confirmText && !(await confirm_(confirmText))) return false;
+  if (!inTg || !apiReady) { alert_('Откройте приложение через бота в Телеграме.'); return false; }
+  setBusy(true);
+  try {
+    ownerData = await api(body);
+    renderOwner();
+    haptic('success');
+    return true;
+  } catch (e) {
+    await alert_('Не получилось: ' + e.message);
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderOwner() {
+  const d = ownerData;
+  const money = n => fmt(n) + ' ₽';
+  const out = [];
+
+  const top = el('div', 'card');
+  top.append(el('div', 'note', 'Общая сумма затрат'), el('div', 'big', money(d.total)));
+  d.per.forEach(p => top.appendChild(kv(p.name, money(p.total))));
+  out.push(top);
+
+  out.push(el('h2', 'sec', 'Добавить затрату'));
+  const add = el('div', 'card own-add');
+  const who = el('select');
+  who.setAttribute('aria-label', 'Кто потратил');
+  d.owners.forEach(n => who.add(new Option(n, n)));
+  const myName = storage(ls => ls.getItem(ME_KEY)) || '';
+  const mine = d.owners.find(n => n === ownerWho) || d.owners.find(n => myName && (n === myName || n.startsWith(myName) || myName.startsWith(n)));
+  if (mine) who.value = mine;
+  who.addEventListener('change', () => { ownerWho = who.value; });
+  const title = el('input');
+  title.placeholder = 'Название затраты'; title.maxLength = 80; title.autocomplete = 'off';
+  const sum = el('input');
+  sum.placeholder = 'Сумма, ₽'; sum.inputMode = 'decimal'; sum.autocomplete = 'off';
+  const btn = el('button', 'btn', 'Добавить');
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    const t = title.value.trim(), s = num(sum.value);
+    if (t.length < 2) return alert_('Напишите название затраты.');
+    if (s == null || isNaN(s) || s === 0) return alert_('Напишите сумму числом.');
+    ownerWho = who.value;
+    await ownerPost({ action: 'ownerAdd', who: who.value, title: t, sum: s });
+  });
+  add.append(who, title, sum, btn);
+  out.push(add);
+
+  out.push(el('h2', 'sec', 'Все затраты'));
+  const list = el('div', 'card');
+  if (!d.items.length) list.appendChild(el('div', 'note', 'Пока ничего не записано.'));
+  d.items.forEach(it => {
+    const row = el('div', 'own-item');
+    const main = el('div', 'own-main');
+    main.append(el('div', null, it.title), el('small', null, `${it.date} · ${it.who}`));
+    const x = el('button', 'x', '×');
+    x.type = 'button'; x.setAttribute('aria-label', 'Удалить запись');
+    x.addEventListener('click', () => ownerPost({ action: 'ownerDelete', id: it.id }, `Удалить запись «${it.title}» на ${money(it.sum)}?`));
+    row.append(main, el('div', 'own-sum', money(it.sum)), x);
+    list.appendChild(row);
+  });
+  out.push(list);
+  $('ownerBody').replaceChildren(...out);
+}
 
 /* ---------- исправление отправленного отчёта ---------- */
 
