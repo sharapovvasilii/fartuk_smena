@@ -742,8 +742,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbynvdVl8WfDOLyTa6tnH2QR
 // этот файл лежит на GitHub в открытом доступе.
 
 // Картинка на экране загрузки: файл рядом с index.html на GitHub, например 'loading.png'.
-// Пусто — будет эмодзи 🍕.
-const LOADING_ART = '';
+// Если файла нет — будет эмодзи 🍕. Чтобы убрать картинку совсем: const LOADING_ART = '';
+const LOADING_ART = 'loading.png';
 
 // Время смены по умолчанию
 const SHIFT_FROM = '10:00';
@@ -755,7 +755,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.17';
+const APP_VERSION = '2026-11-02.18';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
