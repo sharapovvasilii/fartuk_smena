@@ -304,12 +304,17 @@
   .inv-line { margin-top: 6px; }
   /* Название позиции — белое, без рамки, как подпись */
   .inv-name { flex: 1; min-width: 0; font-weight: 600; background: var(--card); padding-left: 0; }
+  /* Пишут название (или оно пустое) — обычное поле с отступом, текст не прилипает к рамке */
+  .inv-name:focus, .inv-name:placeholder-shown { background: var(--field); padding-left: 12px; }
+  .inv-line { flex-wrap: wrap; }
   .inv-line input, .inv-line select { font-size: 14px; padding: 7px 6px; }
-  .inv-qty { width: 86px; flex: none; text-align: center; text-align-last: center; }
-  .inv-unit { width: 54px; flex: none; }
-  .inv-pack { width: 78px; flex: none; }
-  .inv-total { flex: 1; min-width: 0; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; }
+  .inv-qty { width: 84px; flex: none; text-align: center; }
+  .inv-qty::placeholder { font-size: 13px; }
+  .inv-unit { width: 48px; flex: none; }
+  .inv-po { color: var(--hint); font-size: 14px; flex: none; }
+  .inv-pack { width: 54px; flex: none; text-align: center; }
+  .inv-pu { width: 50px; flex: none; text-align: center; text-align-last: center; }
+  .inv-total { flex: 1 0 auto; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap; }
   .inv-urgent { border: 0; border-radius: 8px; background: var(--field); font-size: 18px; padding: 5px 8px; opacity: .35; }
   .inv-urgent[aria-pressed="true"] { opacity: 1; background: #fbeaea; }
   .inv-hist-head { font-weight: 700; padding: 4px 0; }
@@ -714,7 +719,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.12';
+const APP_VERSION = '2026-11-02.13';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1669,9 +1674,11 @@ function tabCachePut(tab, data) {
 
 // После открытия приложения — заранее, в фоне: к открытию вкладки данные уже есть
 let tabsPreloaded = false;
-function preloadTabs(role) {
+function preloadTabs(role, boss) {
   if (tabsPreloaded) return;
   tabsPreloaded = true;
+  // «Затраты» — первыми и сразу: к открытию вкладки записи уже на телефоне
+  if (boss) loadOwner();
   setTimeout(() => {
     loadRepairs();
     if (role === 'owner' || role === 'buyer') loadInv();
@@ -1725,7 +1732,7 @@ function showApp(data, fresh) {
   shownRole = data.role;
   if (firstShow && data.role === 'owner') renderChips($('chips'), true);   // кнопка ✎ у категорий
   if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
-  if (fresh) preloadTabs(data.role);
+  if (fresh) preloadTabs(data.role, data.boss);
   // Выручку и зарплату — заранее, в фоне: к открытию вкладки цифры уже готовы
   if (fresh && data.role === 'owner' && !revLoaded) preloadRevenue();
   if (fresh && data.role === 'owner' && !payLoaded) pickPayPreset('lastweek', true);   // в понедельник выдают за прошлую неделю
@@ -3014,7 +3021,11 @@ function renderOwner() {
     if (s == null || isNaN(s) || s <= 0) return alert_('Напишите сумму числом.');
     const body = { action: ed ? 'ownerEdit' : 'ownerAdd', who: who.value, title: t, sum: sign * s };
     if (ed) body.id = ed.id; else ownerWho = who.value;
-    if (await ownerPost(body)) { ownerEdit = null; renderOwner(); }
+    haptic('light');
+    btnPending(btn, true, 'Сохраняю…');
+    const ok = await ownerPost(body);
+    btnPending(btn, false);
+    if (ok) { ownerEdit = null; renderOwner(); }
   });
   add.append(seg, who, title, sum, btn);
   if (ed) {
@@ -3074,16 +3085,6 @@ function invShow(data) {
   renderInv();
 }
 
-// Числа для колеса: 0–100 по одному, дальше крупнее шагом — до 10 000
-function invNumbers() {
-  const out = [];
-  for (let n = 0; n <= 100; n++) out.push(n);
-  for (let n = 110; n <= 500; n += 10) out.push(n);
-  for (let n = 550; n <= 2000; n += 50) out.push(n);
-  for (let n = 2100; n <= 10000; n += 100) out.push(n);
-  return out;
-}
-
 // Общее количество: 5 × «400 шт» = «2 000 шт»
 function invTotal(x) {
   const m = /^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(String(x.pack || ''));
@@ -3131,26 +3132,37 @@ function renderInv() {
     del.addEventListener('click', () => { invRows.splice(i, 1); invSaveDraft(); renderInv(); });
     top.append(name, urg, del);
     const line = el('div', 'inv-line');
-    // Сколько — колесо выбора, как будильник в iPhone
-    const qty = el('select', 'inv-qty');
+    // Сколько — только цифры: открывается цифровая клавиатура
+    const qty = el('input', 'inv-qty');
     qty.setAttribute('aria-label', 'Сколько');
-    qty.add(new Option(x.was !== '' ? `было ${x.was}` : 'сколько', ''));
-    const nums = invNumbers();
-    if (x.qty !== '' && !nums.includes(Number(x.qty))) nums.push(Number(x.qty));
-    if (x.was !== '' && !nums.includes(Number(x.was))) nums.push(Number(x.was));
-    nums.sort((a, b) => a - b).forEach(n => qty.add(new Option(String(n), String(n))));
-    qty.value = x.qty === '' ? '' : String(x.qty);
+    qty.inputMode = 'decimal'; qty.autocomplete = 'off'; qty.maxLength = 8;
+    qty.placeholder = x.was !== '' ? `было ${x.was}` : 'сколько';
+    qty.value = x.qty;
     const unit = el('input', 'inv-unit');
     unit.value = x.unit; unit.placeholder = 'шт, ящ'; unit.maxLength = 20;
+    // «по 400 шт»: число — цифрами, единица — выбором
+    const pm = /^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(String(x.pack || ''));
     const pack = el('input', 'inv-pack');
-    pack.value = x.pack; pack.placeholder = 'по 400 шт'; pack.maxLength = 30;
+    pack.setAttribute('aria-label', 'Сколько в одной упаковке');
+    pack.inputMode = 'decimal'; pack.autocomplete = 'off'; pack.maxLength = 7; pack.placeholder = '400';
+    pack.value = pm ? pm[1] : '';
+    const pu = el('select', 'inv-pu');
+    pu.setAttribute('aria-label', 'Единица в упаковке');
+    const puList = ['шт', 'кг', 'г', 'л', 'уп'];
+    const curPu = pm && pm[2].trim() ? pm[2].trim() : 'шт';
+    if (!puList.includes(curPu)) puList.push(curPu);
+    puList.forEach(u => pu.add(new Option(u, u)));
+    pu.value = curPu;
     const total = el('div', 'inv-total');
     const showTotal = () => { const t = invTotal(x); total.textContent = t ? '= ' + t : ''; };
-    qty.addEventListener('change', () => { x.qty = qty.value; showTotal(); haptic('select'); invSaveDraft(); });
+    const digits = inp => inp.value.replace(/[^\d.,]/g, '').replace(/^([^.,]*[.,]\d*).*$/, '$1');
+    const setPack = () => { x.pack = pack.value ? pack.value + ' ' + pu.value : ''; showTotal(); invSaveDraft(); };
+    qty.addEventListener('input', () => { qty.value = digits(qty); x.qty = qty.value; showTotal(); invSaveDraft(); });
     unit.addEventListener('input', () => { x.unit = unit.value; invSaveDraft(); });
-    pack.addEventListener('input', () => { x.pack = pack.value; showTotal(); invSaveDraft(); });
+    pack.addEventListener('input', () => { pack.value = digits(pack); setPack(); });
+    pu.addEventListener('change', setPack);
     showTotal();
-    line.append(qty, unit, pack, total);
+    line.append(qty, unit, el('span', 'inv-po', 'по'), pack, pu, total);
     box.append(top, line);
     card.appendChild(box);
   });
