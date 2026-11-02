@@ -488,6 +488,7 @@
   <p id="editOfferText"></p>
   <button type="button" class="btn btn-light" id="editStart">✏️ Исправить отправленный отчёт</button>
 </div>
+<div class="card edit-card" id="reportedNote" hidden><p id="reportedNoteText"></p></div>
 
 <h2 class="sec">Смена</h2>
 <div class="card">
@@ -763,7 +764,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.22';
+const APP_VERSION = '2026-11-02.23';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1795,7 +1796,7 @@ function preloadTabs(role, boss) {
 
 function saveInitCache(data) {
   storage(ls => ls.setItem(INIT_KEY, JSON.stringify({
-    uid: myTgId(), role: data.role, boss: data.boss, vote: data.vote, name: data.name, config: data.config,
+    uid: myTgId(), role: data.role, boss: data.boss, canReport: data.canReport, vote: data.vote, name: data.name, config: data.config,
     purchase: data.purchase, sections: data.sections, stock: data.stock, stores: data.stores,
   })));
 }
@@ -1838,7 +1839,12 @@ function showApp(data, fresh) {
     renderStockView(data.stock);
   }
   if (data.vote) { voteData = data.vote; renderVote(); }
-  if (firstShow || shownBoss !== !!data.boss) { setupTabs(data.role, !!data.boss); shownBoss = !!data.boss; }
+  if (fresh) { reportedDates = data.reported || {}; reportHours = data.reportHours || null; checkReported(); }
+  const canRep = data.canReport !== false;
+  if (firstShow || shownBoss !== !!data.boss || shownCanReport !== canRep) {
+    setupTabs(data.role, !!data.boss, canRep);
+    shownBoss = !!data.boss; shownCanReport = canRep;
+  }
   shownRole = data.role;
   if (firstShow && data.role === 'owner') renderChips($('chips'), true);   // кнопка ✎ у категорий
   if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
@@ -1880,11 +1886,14 @@ const TAB_SCREENS = { report: 'form', order: 'order', bills: 'bills', vote: 'vot
   rev: 'revenue', pay: 'salary', own: 'owner' };
 let curTab = 'report';
 
-function setupTabs(role, boss) {
-  const show = role === 'owner'
+// canReport — вкладка «Отчёт» только у администраторов, владельца и управляющего
+function setupTabs(role, boss, canReport) {
+  let show = role === 'owner'
     ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
     : role === 'buyer' ? ['buy', 'inv', 'repair']
     : ['report', 'order', 'bills', 'vote', 'repair'];
+  if (canReport === false) show = show.filter(t => t !== 'report');
+  if (!show.includes(curTab)) { curTab = show[0]; showScreen(TAB_SCREENS[curTab]); }
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
     b.hidden = !show.includes(b.dataset.tab);
@@ -3855,6 +3864,30 @@ function hhmm(iso) {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+// Один отчёт в день: если за выбранную дату отчёт уже есть — предупреждаем сразу
+let reportedDates = {};
+let reportHours = null;   // [17, 23] — администраторам отчёт только в эти часы; владельцу и управляющему — null (всегда)
+let shownCanReport = null;
+function sentOn(date) {
+  return !editing && date && Object.prototype.hasOwnProperty.call(reportedDates, date) ? (reportedDates[date] || '') : null;
+}
+function outOfHours() {
+  if (editing || !reportHours) return false;
+  const h = new Date().getHours();
+  return h < reportHours[0] || h >= reportHours[1];
+}
+function checkReported() {
+  const who = sentOn(fields.date.value);
+  let text = '';
+  if (who !== null) {
+    text = `Отчёт за ${ddmm(fields.date.value)} уже отправлен${who ? ' (' + who + ')' : ''}. ` +
+      'Второй отчёт за день отправить нельзя. Если в нём ошибка — исправить может тот, кто отправил, в течение часа.';
+  } else if (outOfHours()) {
+    text = `Отчёт можно отправить с ${reportHours[0]}:00 до ${reportHours[1]}:00. Заполнять можно заранее — всё сохранится.`;
+  }
+  $('reportedNoteText').textContent = text;
+  $('reportedNote').hidden = !text;
+}
 function offerEdit(ed) {
   const box = $('editOffer');
   if (!ed || !ed.data) { box.hidden = true; return; }
@@ -3873,6 +3906,7 @@ function setSelectValue(sel, other, name) {
 
 function startEdit(ed) {
   editing = ed;
+  $('reportedNote').hidden = true;
   const r = ed.data;
   const put = (k, v) => { fields[k].value = v == null ? '' : String(v); };
   put('date', r.date);
@@ -4004,6 +4038,7 @@ async function submit() {
   if (busy) return;
   const r = collect();
   const missing = [];
+  if (sentOn(r.date) !== null || outOfHours()) { checkReported(); return alert_($('reportedNoteText').textContent); }
   if (!r.date) missing.push('дата');
   if (!r.staff.length) missing.push('кто на смене');
   if (r.card == null) missing.push('безнал');
@@ -4057,6 +4092,7 @@ async function submit() {
 build();
 const restored = restoreDraft();
 if (!fields.date.value) fields.date.value = todayISO();
+fields.date.addEventListener('change', checkReported);
 if (!restored) {
   DEFAULT_ROWS.forEach(role => addStaffRow({ role }));
   refreshSenior();
