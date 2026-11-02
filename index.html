@@ -288,6 +288,33 @@
   .own-item small { display: block; color: var(--hint); font-size: 12px; }
   .own-item .own-sum { font-weight: 700; white-space: nowrap; }
 
+  /* Инвентаризация */
+  .inv-item { border-top: 1px solid #f0f0ef; padding: 10px 0; }
+  .inv-item:first-child { border-top: 0; }
+  .inv-top, .inv-line { display: flex; align-items: center; gap: 6px; }
+  .inv-line { margin-top: 6px; }
+  .inv-name { flex: 1; min-width: 0; font-weight: 600; }
+  .inv-qty { width: 92px; text-align: right; }
+  .inv-unit { width: 72px; }
+  .inv-pack { flex: 1; min-width: 0; }
+  .inv-urgent { border: 0; border-radius: 8px; background: var(--field); font-size: 18px; padding: 5px 8px; opacity: .35; }
+  .inv-urgent[aria-pressed="true"] { opacity: 1; background: #fbeaea; }
+  .inv-hist-head { font-weight: 700; padding: 4px 0; }
+  .inv-hist { white-space: pre-line; font-size: 14px; padding-bottom: 6px; }
+
+  /* Ремонт */
+  #repairScreen textarea { margin: 6px 0; }
+  #repairScreen .btn { margin-top: 4px; }
+  .repair-item { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid #f0f0ef; cursor: pointer; }
+  .repair-item:first-child { border-top: 0; }
+  .repair-main { flex: 1; min-width: 0; }
+  .repair-what { font-weight: 600; }
+  .repair-main small { display: block; color: var(--hint); font-size: 12px; margin-top: 2px; }
+  .repair-go { color: var(--hint); font-size: 22px; }
+  .repair-text { font-size: 15px; margin: 6px 0; white-space: pre-line; }
+  .repair-photo { width: 100%; border-radius: 12px; margin: 6px 0; display: block; }
+  .sheet h3 { margin-top: 14px; }
+
   /* Название магазина в списке закупки — кнопка с адресом */
   .psec-title.store-link {
     background: none; border: 0; padding: 4px 0; font: inherit; font-size: 12px; font-weight: 800;
@@ -397,6 +424,8 @@
   <button type="button" class="seg-btn" data-tab="order" hidden>Срочная заявка</button>
   <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
+  <button type="button" class="seg-btn" data-tab="inv" hidden>Инвентаризация</button>
+  <button type="button" class="seg-btn" data-tab="repair" hidden>Ремонт</button>
   <button type="button" class="seg-btn" data-tab="rev" hidden>Выручка</button>
   <button type="button" class="seg-btn" data-tab="pay" hidden>Зарплата</button>
   <button type="button" class="seg-btn" data-tab="own" hidden>Затраты</button>
@@ -592,6 +621,34 @@
   <div id="voteBody"></div>
 </main>
 
+<!-- Инвентаризация упаковки (управляющий, владелец, снабженец) -->
+<main id="invScreen" hidden>
+  <header>
+    <h1>Инвентаризация</h1>
+    <div class="sub">Сколько осталось упаковки — уйдёт в общий чат</div>
+  </header>
+  <div id="invBody"></div>
+</main>
+
+<!-- Ремонт: что сломалось и как починили (все) -->
+<main id="repairScreen" hidden>
+  <header>
+    <h1>Ремонт</h1>
+    <div class="sub">Что сломалось и как починили</div>
+  </header>
+  <h2 class="sec">Что сломалось</h2>
+  <div class="card">
+    <div class="ph-head"><b>Фото</b><small>Можно без фото</small></div>
+    <div class="photos" id="repairPhotos"></div>
+    <input type="file" id="repairPhotoInput" accept="image/*" multiple hidden>
+    <textarea id="repairWhat" placeholder="Что сломано — например «не греет печь, нижний ярус»"></textarea>
+    <textarea id="repairIdea" placeholder="Как починить или что сделать (если знаете)"></textarea>
+    <button type="button" class="btn" id="repairSend">Сообщить о поломке</button>
+  </div>
+  <div id="repairList"></div>
+  <input type="file" id="fixPhotoInput" accept="image/*" multiple hidden>
+</main>
+
 <!-- Владельцы: траты на бизнес (только роль «владелец») -->
 <main id="ownerScreen" hidden>
   <header>
@@ -615,8 +672,10 @@
     </div>
   </div>
   <div id="revBody"></div>
-  <div class="ver-note" id="verNote"></div>
 </main>
+
+<!-- Версия — внизу любого экрана: видно, что загрузилось обновление -->
+<div class="ver-note" id="verNote"></div>
 
 <script>
 /* ================= НАСТРОЙКИ ================= */
@@ -642,7 +701,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.9';
+const APP_VERSION = '2026-11-02.11';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1448,6 +1507,7 @@ function photoSet(boxId, inputId, max) {
     clear() { set.list.length = 0; set.render(); },
     render() {
       const box = $(boxId);
+      if (!box) return;   // место для фото ещё не на экране (окно «Починено»)
       box.textContent = '';
       set.list.forEach((src, i) => {
         const d = el('div', 'ph');
@@ -1488,6 +1548,8 @@ function showScreen(name) {
   $('revScreen').hidden = name !== 'revenue';
   $('payScreen').hidden = name !== 'salary';
   $('voteScreen').hidden = name !== 'vote';
+  $('invScreen').hidden = name !== 'inv';
+  $('repairScreen').hidden = name !== 'repair';
   $('ownerScreen').hidden = name !== 'owner';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
@@ -1566,6 +1628,28 @@ function myTgId() {
   return u && u.id ? String(u.id) : '';
 }
 
+// Телефон помнит последний ответ вкладок «Инвентаризация», «Ремонт», «Затраты»:
+// показываем сразу, свежее подтягиваем в фоне. Только для этого же человека.
+const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1' };
+function tabCacheGet(tab) {
+  const c = storage(ls => JSON.parse(ls.getItem(TAB_KEYS[tab]) || 'null'));
+  return c && c.uid === myTgId() ? c.data : null;
+}
+function tabCachePut(tab, data) {
+  storage(ls => ls.setItem(TAB_KEYS[tab], JSON.stringify({ uid: myTgId(), data })));
+}
+
+// После открытия приложения — заранее, в фоне: к открытию вкладки данные уже есть
+let tabsPreloaded = false;
+function preloadTabs(role) {
+  if (tabsPreloaded) return;
+  tabsPreloaded = true;
+  setTimeout(() => {
+    loadRepairs();
+    if (role === 'owner' || role === 'buyer') loadInv();
+  }, 1500);
+}
+
 function saveInitCache(data) {
   storage(ls => ls.setItem(INIT_KEY, JSON.stringify({
     uid: myTgId(), role: data.role, boss: data.boss, vote: data.vote, name: data.name, config: data.config,
@@ -1581,9 +1665,15 @@ function loadInitCache() {
 function showApp(data, fresh) {
   if (Array.isArray(data.stores)) stores = data.stores;
   if (data.role === 'buyer') {
-    $('tabs').hidden = true;
-    if (!(fresh && purchaseTouched)) showBuyer(data.purchase, data.sections, data.stock);
+    // Снабженцу — вкладки «Закупка», «Инвентаризация», «Ремонт»
+    if (shownRole !== 'buyer') { curTab = 'buy'; setupTabs('buyer', false); }
+    if (!(fresh && purchaseTouched)) {
+      if (curTab === 'buy') showBuyer(data.purchase, data.sections, data.stock);
+      else { purchase = data.purchase || []; sections = data.sections || []; renderPurchase(); renderStockView(data.stock); }
+    }
     shownRole = 'buyer';
+    if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
+    if (fresh) preloadTabs('buyer');
     return;
   }
   $('gate').hidden = true;
@@ -1607,6 +1697,7 @@ function showApp(data, fresh) {
   shownRole = data.role;
   if (firstShow && data.role === 'owner') renderChips($('chips'), true);   // кнопка ✎ у категорий
   if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
+  if (fresh) preloadTabs(data.role);
   // Выручку и зарплату — заранее, в фоне: к открытию вкладки цифры уже готовы
   if (fresh && data.role === 'owner' && !revLoaded) preloadRevenue();
   if (fresh && data.role === 'owner' && !payLoaded) pickPayPreset('lastweek', true);   // в понедельник выдают за прошлую неделю
@@ -1640,13 +1731,15 @@ async function init() {
 
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
-const TAB_SCREENS = { report: 'form', order: 'order', vote: 'vote', buy: 'buyer', rev: 'revenue', pay: 'salary', own: 'owner' };
+const TAB_SCREENS = { report: 'form', order: 'order', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
+  rev: 'revenue', pay: 'salary', own: 'owner' };
 let curTab = 'report';
 
 function setupTabs(role, boss) {
   const show = role === 'owner'
-    ? ['report', 'order', 'vote', 'buy', 'rev', 'pay'].concat(boss ? ['own'] : [])
-    : ['report', 'order', 'vote'];
+    ? ['report', 'order', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
+    : role === 'buyer' ? ['buy', 'inv', 'repair']
+    : ['report', 'order', 'vote', 'repair'];
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
     b.hidden = !show.includes(b.dataset.tab);
@@ -1675,6 +1768,8 @@ function setTab(tab) {
   showScreen(TAB_SCREENS[tab]);
   haptic('select');
   if (tab === 'vote') renderVote();
+  if (tab === 'inv') loadInv();
+  if (tab === 'repair') loadRepairs();
   if (tab === 'own') loadOwner();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
@@ -2809,13 +2904,17 @@ let ownerData = null;
 let ownerWho = '';
 
 async function loadOwner() {
-  if (!ownerData) $('ownerBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  if (!ownerData) {
+    const cached = tabCacheGet('own');
+    if (cached) { ownerData = cached; renderOwner(); }
+    else $('ownerBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
   try {
     const res = await fetch(`${API_URL}?action=ownerExp&initData=${encodeURIComponent(initData)}`);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
-    ownerData = data;
-    renderOwner();
+    tabCachePut('own', data);
+    if (JSON.stringify(data) !== JSON.stringify(ownerData)) { ownerData = data; renderOwner(); }
   } catch (e) {
     if (!ownerData) $('ownerBody').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
   }
@@ -2828,6 +2927,7 @@ async function ownerPost(body, confirmText) {
   setBusy(true);
   try {
     ownerData = await api(body);
+    tabCachePut('own', ownerData);
     renderOwner();
     haptic('success');
     return true;
@@ -2918,6 +3018,307 @@ function renderOwner() {
   out.push(list);
   $('ownerBody').replaceChildren(...out);
 }
+
+/* ---------- инвентаризация упаковки (управляющий, владелец, снабженец) ---------- */
+
+const INV_DRAFT = 'fartuk-inv-draft';
+let invData = null;    // { history, defaults } с сервера
+let invRows = null;    // что сейчас в форме: [{ name, qty, unit, pack, urgent, was }]
+let invNote = '';
+
+function invSaveDraft() { storage(ls => ls.setItem(INV_DRAFT, JSON.stringify({ rows: invRows, note: invNote }))); }
+
+// Список позиций берём из прошлой инвентаризации (количество — подсказкой «было»), иначе — начальный
+function invFresh() {
+  const last = invData && invData.history && invData.history[0];
+  const base = last && last.items && last.items.length ? last.items : (invData ? invData.defaults : []);
+  return base.map(x => ({ name: x.name, qty: '', unit: x.unit || '', pack: x.pack || '', urgent: false,
+    was: x.qty != null && x.qty !== undefined ? x.qty : '' }));
+}
+
+function invShow(data) {
+  invData = data;
+  if (!invRows) {
+    const d = storage(ls => JSON.parse(ls.getItem(INV_DRAFT) || 'null'));
+    if (d && Array.isArray(d.rows) && d.rows.length) { invRows = d.rows; invNote = d.note || ''; }
+    else invRows = invFresh();
+  }
+  renderInv();
+}
+
+async function loadInv() {
+  if (!invData) {
+    const cached = tabCacheGet('inv');
+    if (cached) invShow(cached);
+    else $('invBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
+  try {
+    const res = await fetch(`${API_URL}?action=inventory&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    tabCachePut('inv', data);
+    // Перерисовываем, только если что-то поменялось — чтобы не сбить ввод
+    if (JSON.stringify(data) !== JSON.stringify(invData)) invShow(data);
+  } catch (e) {
+    if (!invData) $('invBody').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+function renderInv() {
+  const out = [];
+  out.push(el('h2', 'sec', 'Сколько осталось'));
+  const card = el('div', 'card');
+  invRows.forEach((x, i) => {
+    const box = el('div', 'inv-item');
+    const top = el('div', 'inv-top');
+    const name = el('input', 'inv-name');
+    name.value = x.name; name.placeholder = 'Позиция'; name.maxLength = 80;
+    name.addEventListener('input', () => { x.name = name.value; invSaveDraft(); });
+    const urg = el('button', 'inv-urgent', '🚨');
+    urg.type = 'button'; urg.title = 'Срочно — заканчивается';
+    urg.setAttribute('aria-pressed', x.urgent ? 'true' : 'false');
+    urg.addEventListener('click', () => {
+      x.urgent = !x.urgent; urg.setAttribute('aria-pressed', x.urgent ? 'true' : 'false'); haptic('select'); invSaveDraft();
+    });
+    const del = el('button', 'x', '×');
+    del.type = 'button'; del.setAttribute('aria-label', 'Убрать позицию');
+    del.addEventListener('click', () => { invRows.splice(i, 1); invSaveDraft(); renderInv(); });
+    top.append(name, urg, del);
+    const line = el('div', 'inv-line');
+    const qty = el('input', 'inv-qty');
+    qty.inputMode = 'decimal'; qty.autocomplete = 'off'; qty.value = x.qty;
+    qty.placeholder = x.was !== '' ? `было ${x.was}` : 'сколько';
+    qty.addEventListener('input', () => { x.qty = qty.value; invSaveDraft(); });
+    const unit = el('input', 'inv-unit');
+    unit.value = x.unit; unit.placeholder = 'шт, ящ'; unit.maxLength = 20;
+    unit.addEventListener('input', () => { x.unit = unit.value; invSaveDraft(); });
+    const pack = el('input', 'inv-pack');
+    pack.value = x.pack; pack.placeholder = 'по … (400 шт)'; pack.maxLength = 30;
+    pack.addEventListener('input', () => { x.pack = pack.value; invSaveDraft(); });
+    line.append(qty, unit, pack);
+    box.append(top, line);
+    card.appendChild(box);
+  });
+  const add = el('button', 'link', '+ Добавить позицию');
+  add.type = 'button';
+  add.addEventListener('click', () => {
+    invRows.push({ name: '', qty: '', unit: 'шт', pack: '', urgent: false, was: '' });
+    invSaveDraft(); renderInv();
+    const names = $('invBody').querySelectorAll('.inv-name');
+    if (names.length) names[names.length - 1].focus();
+  });
+  card.appendChild(add);
+  out.push(card);
+
+  out.push(el('h2', 'sec', 'Примечание'));
+  const nc = el('div', 'card');
+  const note = el('textarea');
+  note.placeholder = 'Например: к 1-му числу заказать стакан-коробки, если с одного места — оптом дешевле';
+  note.value = invNote;
+  note.addEventListener('input', () => { invNote = note.value; invSaveDraft(); });
+  nc.appendChild(note);
+  out.push(nc);
+
+  const send = el('button', 'btn', 'Отправить инвентаризацию');
+  send.type = 'button';
+  send.addEventListener('click', submitInv);
+  out.push(send);
+
+  const hist = (invData && invData.history) || [];
+  if (hist.length) {
+    out.push(el('h2', 'sec', 'Прошлые инвентаризации'));
+    hist.forEach(h => {
+      const c = el('div', 'card');
+      c.appendChild(el('div', 'inv-hist-head', `${h.date} · ${h.who}`));
+      c.appendChild(el('div', 'inv-hist', h.text));
+      if (h.note) c.appendChild(el('div', 'note', '📝 ' + h.note));
+      out.push(c);
+    });
+  }
+  $('invBody').replaceChildren(...out);
+}
+
+async function submitInv() {
+  if (busy) return;
+  const items = invRows.map(x => ({ name: String(x.name || '').trim(), qty: num(x.qty), unit: String(x.unit || '').trim(),
+    pack: String(x.pack || '').trim(), urgent: !!x.urgent })).filter(x => x.name);
+  if (!items.length) return alert_('Добавьте хотя бы одну позицию.');
+  if (items.some(x => isNaN(x.qty))) return alert_('В количестве должно быть число.');
+  const empty = items.filter(x => x.qty == null).length;
+  if (empty && !(await confirm_(`Не заполнено количество у ${empty} ${pl(empty, 'позиции', 'позиций', 'позиций')}. Всё равно отправить?`))) return;
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  setBusy(true);
+  try {
+    const data = await api({ action: 'invSave', items, note: invNote.trim() });
+    delete data.sent;
+    invData = data;
+    tabCachePut('inv', data);
+    invRows = invFresh(); invNote = '';
+    storage(ls => ls.removeItem(INV_DRAFT));
+    renderInv();
+    window.scrollTo(0, 0);
+    haptic('success');
+    await alert_(data.sent ? 'Инвентаризация отправлена в чат ✅' : 'Сохранено в таблицу, но сообщение в чат не ушло.');
+  } catch (e) {
+    await alert_('Не получилось отправить: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+/* ---------- ремонт: что сломалось и как починили (все) ---------- */
+
+let repairData = null;
+const repairPhotos = photoSet('repairPhotos', 'repairPhotoInput', 4);
+const fixPhotos = photoSet('fixPhotos', 'fixPhotoInput', 4);
+repairPhotos.mount();
+fixPhotos.mount();
+
+async function loadRepairs() {
+  if (!repairData) {
+    const cached = tabCacheGet('repair');
+    if (cached) { repairData = cached; renderRepairs(); }
+    else $('repairList').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
+  try {
+    const res = await fetch(`${API_URL}?action=repairs&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    tabCachePut('repair', data);
+    if (JSON.stringify(data) !== JSON.stringify(repairData)) { repairData = data; renderRepairs(); }
+  } catch (e) {
+    if (!repairData) $('repairList').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+function repairItem(x) {
+  const row = el('div', 'repair-item');
+  const main = el('div', 'repair-main');
+  main.appendChild(el('div', 'repair-what', x.what));
+  const bits = [x.status === 'починено' ? `починено ${x.fixedAt} · ${x.fixedBy}` : `${x.date} · ${x.who}`];
+  const n = x.photos + x.fixPhotos;
+  if (n) bits.push(`📷 ${n}`);
+  main.appendChild(el('small', null, bits.join(' · ')));
+  row.append(main, el('span', 'repair-go', '›'));
+  row.addEventListener('click', () => openRepair(x));
+  return row;
+}
+
+function renderRepairs() {
+  const d = repairData;
+  const out = [];
+  out.push(el('h2', 'sec', `Сломано${d.open.length ? ' · ' + d.open.length : ''}`));
+  const open = el('div', 'card');
+  if (!d.open.length) open.appendChild(el('div', 'note', 'Сейчас всё работает 👍'));
+  d.open.forEach(x => open.appendChild(repairItem(x)));
+  out.push(open);
+  if (d.fixed.length) {
+    out.push(el('h2', 'sec', 'Починено'));
+    const done = el('div', 'card');
+    d.fixed.forEach(x => done.appendChild(repairItem(x)));
+    out.push(done);
+  }
+  $('repairList').replaceChildren(...out);
+}
+
+// Фото грузятся только по нажатию — через сервер
+function photoLoader(x, kind, count, label) {
+  const wrap = el('div');
+  if (!count) return wrap;
+  const btn = el('button', 'btn btn-light', `📷 ${label} (${count})`);
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Загружаю фото…';
+    try {
+      for (let n = 0; n < count; n++) {
+        const res = await fetch(`${API_URL}?action=repairPhoto&id=${encodeURIComponent(x.id)}&kind=${kind}&n=${n}&initData=${encodeURIComponent(initData)}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+        const img = el('img', 'repair-photo');
+        img.src = data.data; img.alt = `${label} ${n + 1}`;
+        wrap.appendChild(img);
+      }
+      btn.remove();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = `📷 ${label} (${count})`;
+      alert_('Не удалось загрузить фото: ' + e.message);
+    }
+  });
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+function openRepair(x) {
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, x.what));
+  body.appendChild(el('div', 'grp', `${x.date} · сообщил(а) ${x.who}`));
+  if (x.idea) body.appendChild(el('div', 'repair-text', '💡 ' + x.idea));
+  body.appendChild(photoLoader(x, 'before', x.photos, 'Фото поломки'));
+  if (x.status === 'починено') {
+    body.appendChild(el('h3', null, '✅ Починено'));
+    body.appendChild(el('div', 'grp', `${x.fixedAt} · ${x.fixedBy}`));
+    if (x.how) body.appendChild(el('div', 'repair-text', '🔧 ' + x.how));
+    body.appendChild(photoLoader(x, 'after', x.fixPhotos, 'Фото после'));
+  } else {
+    body.appendChild(el('h3', null, 'Починили?'));
+    const how = el('textarea');
+    how.placeholder = 'Как починили — например «заменили тэн, мастер Иван»';
+    const ph = el('div', 'photos'); ph.id = 'fixPhotos';
+    fixPhotos.clear();
+    const done = el('button', 'btn', '✅ Починено');
+    done.type = 'button';
+    done.addEventListener('click', () => {
+      if (how.value.trim().length < 2) return alert_('Напишите, как починили.');
+      repairPost({ action: 'repairFix', id: x.id, how: how.value.trim(), photos: fixPhotos.list }, 'Отмечено как починено ✅');
+    });
+    body.append(el('div', 'ph-head', null), ph, how, done);
+    body.querySelector('.ph-head').append(el('b', null, 'Фото после'), el('small', null, 'Можно без фото'));
+    fixPhotos.render();
+  }
+  if (shownRole === 'owner') {
+    const del = el('button', 'btn btn-light', 'Удалить запись');
+    del.type = 'button'; del.style.color = 'var(--err)';
+    del.addEventListener('click', async () => {
+      if (!(await confirm_('Удалить эту запись о ремонте?'))) return;
+      repairPost({ action: 'repairDelete', id: x.id });
+    });
+    body.appendChild(del);
+  }
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.appendChild(close);
+  $('itemSheet').hidden = false;
+}
+
+async function repairPost(body, okText) {
+  if (busy) return false;
+  if (!inTg || !apiReady) { alert_('Откройте приложение через бота в Телеграме.'); return false; }
+  setBusy(true);
+  try {
+    repairData = await api(body);
+    tabCachePut('repair', repairData);
+    closeItem();
+    renderRepairs();
+    haptic('success');
+    if (okText) await alert_(okText);
+    return true;
+  } catch (e) {
+    await alert_('Не получилось: ' + e.message);
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
+
+$('repairSend').addEventListener('click', async () => {
+  const what = $('repairWhat').value.trim();
+  if (what.length < 3) return alert_('Напишите, что сломалось.');
+  const ok = await repairPost({ action: 'repairAdd', what, idea: $('repairIdea').value.trim(), photos: repairPhotos.list },
+    'Отправлено ✅ Сообщение ушло в общий чат.');
+  if (ok) { $('repairWhat').value = ''; $('repairIdea').value = ''; repairPhotos.clear(); }
+});
 
 /* ---------- исправление отправленного отчёта ---------- */
 
