@@ -139,7 +139,8 @@
   .cgroup summary span { flex: 1; }
   .cgroup .cat-typed { min-height: 44px; margin: 0 0 10px; font-size: 14px; }
   /* Смахнуть кнопку вбок — удалить (владелец и управляющий) */
-  .chip.swipe { touch-action: pan-y; transition: background .15s; user-select: none; -webkit-user-select: none; }
+  .chip.swipe { touch-action: pan-y; transition: background .15s; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; }
   .chip.del-ready { background: var(--err) !important; }
   .swipe-hint { font-size: 12px; margin: 0 0 4px; }
   .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 24px; line-height: 1; padding: 0 12px; }
@@ -641,7 +642,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.8';
+const APP_VERSION = '2026-11-02.9';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1030,21 +1031,36 @@ function renderChips(box, inReport) {
     updateCounts(d);
   });
   if (groups.length === 1 && !byGroup[OTHER_GROUP].length) box.prepend(el('p', 'note', 'Список товаров загрузится из таблицы.'));
-  else if (canEditCats()) box.prepend(el('p', 'note swipe-hint', 'Чтобы убрать кнопку товара — зажмите её и смахните вбок.'));
+  else if (canEditCats()) box.prepend(el('p', 'note swipe-hint', 'Зажмите кнопку товара — можно изменить название и единицу (шт, кг, кор). Смахните вбок — убрать.'));
 }
 
 // Убрать кнопку товара: зажать и смахнуть вбок (владелец и управляющий)
 const SWIPE_DELETE = 90;   // на сколько пикселей смахнуть, чтобы удалить
 function enableSwipeDelete(b, item) {
   b.classList.add('swipe');
-  let x0 = null, y0 = 0, dx = 0, id = null;
+  let x0 = null, y0 = 0, dx = 0, id = null, hold = null;
   const reset = () => { b.style.transform = ''; b.style.opacity = ''; b.classList.remove('del-ready'); };
-  b.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; dx = 0; id = e.pointerId; });
+  const stopHold = () => { clearTimeout(hold); hold = null; };
+  b.addEventListener('contextmenu', e => e.preventDefault());   // без меню «Копировать» при долгом нажатии
+  b.addEventListener('pointerdown', e => {
+    x0 = e.clientX; y0 = e.clientY; dx = 0; id = e.pointerId;
+    // Зажали и держат на месте — окно правки товара (название и единица)
+    stopHold();
+    hold = setTimeout(() => {
+      hold = null;
+      if (x0 === null || Math.abs(dx) >= 8) return;
+      x0 = null;
+      b.dataset.swiped = '1'; setTimeout(() => { delete b.dataset.swiped; }, 600);
+      haptic('medium');
+      openItemEdit(item);
+    }, 550);
+  });
   b.addEventListener('pointermove', e => {
     if (x0 === null || e.pointerId !== id) return;
     dx = e.clientX - x0;
-    if (Math.abs(e.clientY - y0) > 30 && Math.abs(dx) < 20) { x0 = null; reset(); return; }   // листают вниз
+    if (Math.abs(e.clientY - y0) > 30 && Math.abs(dx) < 20) { x0 = null; stopHold(); reset(); return; }   // листают вниз
     if (Math.abs(dx) < 8) return;
+    stopHold();
     try { b.setPointerCapture(id); } catch (err) {}
     b.style.transform = `translateX(${dx}px)`;
     b.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 250));
@@ -1052,6 +1068,7 @@ function enableSwipeDelete(b, item) {
     if (ready !== b.classList.contains('del-ready')) { b.classList.toggle('del-ready', ready); if (ready) haptic('medium'); }
   });
   const end = async () => {
+    stopHold();
     if (x0 === null) return;
     x0 = null;
     if (Math.abs(dx) >= 8) { b.dataset.swiped = '1'; setTimeout(() => { delete b.dataset.swiped; }, 400); }
@@ -1062,7 +1079,46 @@ function enableSwipeDelete(b, item) {
     catPost({ action: 'itemDelete', name: item });
   };
   b.addEventListener('pointerup', end);
-  b.addEventListener('pointercancel', () => { x0 = null; reset(); });
+  b.addEventListener('pointercancel', () => { x0 = null; stopHold(); reset(); });
+}
+
+// Окно правки товара: название и в чём считаем (шт, кг, кор…)
+const UNITS = ['шт', 'кг', 'г', 'л', 'кор', 'уп', 'пачка', 'бут', 'банка', 'ведро', 'мешок'];
+function openItemEdit(item) {
+  const c = (config.catalog || []).find(x => x.name === item) || { name: item, unit: 'шт' };
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, item));
+  body.appendChild(el('div', 'grp', 'Изменить товар в заявке и товарном учёте'));
+  const name = el('input', 'full');
+  name.value = item; name.maxLength = 60; name.placeholder = 'Название товара';
+  const unit = el('select', 'full');
+  unit.setAttribute('aria-label', 'Единица');
+  unit.style.textAlign = 'left'; unit.style.textAlignLast = 'left';
+  const cur = c.unit || 'шт';
+  UNITS.concat(UNITS.includes(cur) ? [] : [cur]).forEach(u => unit.add(new Option(u, u)));
+  unit.value = cur;
+  body.append(el('div', 'note', 'Название'), name, el('div', 'note', 'В чём считаем'), unit);
+  const save = el('button', 'btn', 'Сохранить');
+  save.type = 'button';
+  save.addEventListener('click', () => {
+    const newName = name.value.trim();
+    if (newName.length < 2) return alert_('Напишите название товара.');
+    if (newName === item && unit.value === cur) return closeItem();
+    catPost({ action: 'itemEdit', name: item, newName, unit: unit.value });
+  });
+  const del = el('button', 'btn btn-light', 'Убрать кнопку');
+  del.type = 'button';
+  del.style.color = 'var(--err)';
+  del.addEventListener('click', async () => {
+    if (!(await confirm_(`Убрать кнопку «${item}» из заявки? Товар удалится с листа «Товары».`))) return;
+    catPost({ action: 'itemDelete', name: item });
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(save, del, close);
+  $('itemSheet').hidden = false;
 }
 
 function linesOf(s) { return String(s || '').split('\n').map(x => x.trim()).filter(Boolean); }
