@@ -131,6 +131,7 @@
   .chip[aria-pressed="true"] { background: var(--accent); }
   /* Подсказка под «Другой человек…»: похожие сотрудники из списка */
   .name-hint { grid-column: 1 / -1; margin: 0; }
+  .inv-hist-note { margin: 8px 0 2px; padding: 8px 10px; background: var(--field); border-radius: 10px; font-size: 14px; white-space: pre-wrap; }
   .name-hint .chips { margin: 0; }
   .name-hint .note { margin: 2px 0 6px; color: var(--warn); font-weight: 600; }
   .name-hint .chip { background: var(--accent); }
@@ -806,7 +807,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-03.30';
+const APP_VERSION = '2026-11-03.31';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -3751,9 +3752,11 @@ function renderInv() {
   out.push(el('h2', 'sec', 'Примечание'));
   const nc = el('div', 'card');
   const note = el('textarea');
+  note.id = 'invNoteBox';
   note.placeholder = 'Например: к 1-му числу заказать стакан-коробки, если с одного места — оптом дешевле';
   note.value = invNote;
   note.addEventListener('input', () => { invNote = note.value; invSaveDraft(); });
+  note.addEventListener('change', () => { invNote = note.value; invSaveDraft(); });
   nc.appendChild(note);
   out.push(nc);
 
@@ -3769,7 +3772,11 @@ function renderInv() {
       const c = el('div', 'card');
       c.appendChild(el('div', 'inv-hist-head', `${h.date} · ${h.who}`));
       c.appendChild(el('div', 'inv-hist', h.text));
-      if (h.note) c.appendChild(el('div', 'note', '📝 ' + h.note));
+      if (h.note) {
+        const n = el('div', 'inv-hist-note');
+        n.append(el('b', null, 'Примечание: '), document.createTextNode(h.note));
+        c.appendChild(n);
+      }
       out.push(c);
     });
   }
@@ -3779,6 +3786,9 @@ function renderInv() {
 async function submitInv(btn) {
   if (busy) return;
   haptic('light');
+  // Текст берём прямо из поля: на iPhone последнее слово (автозамена, диктовка) может не успеть попасть в invNote
+  const box = $('invNoteBox');
+  if (box) invNote = box.value;
   const items = invRows.map(x => ({ name: String(x.name || '').trim(), qty: num(x.qty), unit: String(x.unit || '').trim().toLowerCase(),
     pack: String(x.pack || '').trim(), urgent: !!x.urgent })).filter(x => x.name);
   if (!items.length) return alert_('Добавьте хотя бы одну позицию.');
