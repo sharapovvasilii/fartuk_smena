@@ -129,6 +129,12 @@
     border: 0; background: var(--chip); color: #fff;
   }
   .chip[aria-pressed="true"] { background: var(--accent); }
+  /* Подсказка под «Другой человек…»: похожие сотрудники из списка */
+  .name-hint { grid-column: 1 / -1; margin: 0; }
+  .name-hint .chips { margin: 0; }
+  .name-hint .note { margin: 2px 0 6px; color: var(--warn); font-weight: 600; }
+  .name-hint .chip { background: var(--accent); }
+  .name-hint .chip.light { background: var(--field); color: var(--text); }
   .cgroup { border-top: 1px solid #f0f0ef; }
   .cgroup:first-child { border-top: 0; }
   .cgroup summary { list-style: none; cursor: pointer; padding: 10px 0; font-weight: 700; display: flex; justify-content: space-between; }
@@ -800,7 +806,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-03.29';
+const APP_VERSION = '2026-11-03.30';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -992,6 +998,72 @@ function staffName(r) {
   return r.name.value === '__other' ? r.other.value.trim() : r.name.value;
 }
 
+// Похожие сотрудники из списка для вписанного имени: «Тимур» → «Алексеев Тимур».
+// Каждое вписанное слово — начало слова в имени или отличается одной буквой (опечатка).
+function normNm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function oneTypo(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, diff = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++diff > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return diff + (a.length - i) + (b.length - j) <= 1;
+}
+function similarStaff(typed) {
+  const words = normNm(typed).split(' ').filter(w => w.length >= 2);
+  if (!words.length) return [];
+  return (config.staff || []).map(s => s.name).filter(name => {
+    const sw = normNm(name).split(' ');
+    return words.every(w => sw.some(x => x.startsWith(w) || (w.length >= 4 && oneTypo(w, x))));
+  });
+}
+
+// Подсказка под полем «Фамилия и имя»: кнопки с похожими сотрудниками и «Нет, это новый сотрудник»
+function refreshNameHint(r) {
+  const typed = r.other.value.trim();
+  const list = r.name.value === '__other' && typed && r.otherNew !== normNm(typed) ? similarStaff(typed) : [];
+  r.hint.replaceChildren();
+  r.hint.hidden = !list.length;
+  if (!list.length) return list;
+  r.hint.appendChild(el('div', 'note', list.length === 1 ? 'Такой сотрудник уже есть — это он?' : 'Похожие сотрудники уже есть — выберите:'));
+  const chips = el('div', 'chips');
+  list.slice(0, 6).forEach(n => {
+    const b = el('button', 'chip', n);
+    b.type = 'button';
+    b.addEventListener('click', () => pickExisting(r, n));
+    chips.appendChild(b);
+  });
+  const no = el('button', 'chip light', 'Нет, это новый сотрудник');
+  no.type = 'button';
+  no.addEventListener('click', () => { r.otherNew = normNm(r.other.value); refreshNameHint(r); haptic('select'); });
+  chips.appendChild(no);
+  r.hint.appendChild(chips);
+  return list;
+}
+
+function pickExisting(r, n) {
+  setSelectValue(r.name, r.other, n);
+  r.other.hidden = true;
+  r.otherNew = '';
+  refreshNameHint(r);
+  haptic('select');
+  onStaffChange();
+}
+
+// Вписали имя и ушли из поля: точное совпадение — выбираем сами; один похожий — спрашиваем
+async function checkTypedName(r) {
+  const typed = r.other.value.trim();
+  if (r.name.value !== '__other' || !typed || r.otherNew === normNm(typed)) return;
+  const list = similarStaff(typed);
+  const exact = list.find(n => normNm(n) === normNm(typed));
+  if (exact) return pickExisting(r, exact);
+  if (list.length !== 1) return;
+  if (await confirm_(`Такой сотрудник уже есть: ${list[0]}. Выбрать его?`)) pickExisting(r, list[0]);
+  else { r.otherNew = normNm(typed); refreshNameHint(r); }
+}
+
 function addStaffRow(d = {}) {
   const box = el('div', 'staff');
   const top = el('div', 'staff-top');
@@ -1017,9 +1089,11 @@ function addStaffRow(d = {}) {
   const pay = el('div', 's-pay');
   line.append(name, pair);
 
-  box.append(top, line, other, pay);
+  const hint = el('div', 'name-hint');
+  hint.hidden = true;
+  box.append(top, line, other, hint, pay);
   $('staffRows').appendChild(box);
-  const r = { box, role, name, other, from, to, pay };
+  const r = { box, role, name, other, from, to, pay, hint, otherNew: '' };
   staffRows.push(r);
 
   fillPeople(name, 'Кто', peopleGroups(role.value));
@@ -1027,8 +1101,9 @@ function addStaffRow(d = {}) {
   other.hidden = name.value !== '__other';
 
   role.addEventListener('change', () => { fillPeople(name, 'Кто', peopleGroups(role.value)); onStaffChange(); });
-  name.addEventListener('change', () => { other.hidden = name.value !== '__other'; if (!other.hidden) other.focus(); onStaffChange(); });
-  other.addEventListener('input', onStaffChange);
+  name.addEventListener('change', () => { other.hidden = name.value !== '__other'; if (!other.hidden) other.focus(); refreshNameHint(r); onStaffChange(); });
+  other.addEventListener('input', () => { refreshNameHint(r); onStaffChange(); });
+  other.addEventListener('change', () => checkTypedName(r));
   x.addEventListener('click', () => {
     box.remove();
     staffRows.splice(staffRows.indexOf(r), 1);
@@ -4241,6 +4316,20 @@ function setBusy(on) {
 
 async function submit() {
   if (busy) return;
+  // Вписанное имя похоже на сотрудника из списка — сначала разобраться, кто это
+  for (const row of staffRows) {
+    if (row.name.value !== '__other') continue;
+    const typed = row.other.value.trim();
+    if (!typed || row.otherNew === normNm(typed)) continue;
+    const list = refreshNameHint(row);
+    if (list.length === 1) {
+      if (await confirm_(`Такой сотрудник уже есть: ${list[0]}. Выбрать его?`)) pickExisting(row, list[0]);
+      else { row.otherNew = normNm(typed); refreshNameHint(row); }
+    } else if (list.length > 1) {
+      row.box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return alert_(`«${typed}» — похожих сотрудников несколько. Выберите нужного под именем или нажмите «Нет, это новый сотрудник».`);
+    }
+  }
   const r = collect();
   const missing = [];
   if (sentOn(r.date) !== null || outOfHours()) { checkReported(); return alert_($('reportedNoteText').textContent); }
