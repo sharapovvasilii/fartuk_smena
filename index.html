@@ -154,6 +154,15 @@
     background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600; font-size: 16px;
   }
   .btn:disabled { opacity: .6; }
+  /* Нажатие видно сразу: кнопка чуть сжимается, при отправке — крутилка и «Отправляю…» */
+  .btn { transition: transform .08s, opacity .08s; }
+  .btn:active { transform: scale(.97); opacity: .85; }
+  .btn.pending { opacity: .8; }
+  .btn.pending::before {
+    content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+    border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .btn-light { background: var(--field); color: var(--accent); text-align: center; margin: 8px 0 4px; }
 
   /* Фото — плитки */
@@ -293,10 +302,14 @@
   .inv-item:first-child { border-top: 0; }
   .inv-top, .inv-line { display: flex; align-items: center; gap: 6px; }
   .inv-line { margin-top: 6px; }
-  .inv-name { flex: 1; min-width: 0; font-weight: 600; }
-  .inv-qty { width: 92px; text-align: right; }
-  .inv-unit { width: 72px; }
-  .inv-pack { flex: 1; min-width: 0; }
+  /* Название позиции — белое, без рамки, как подпись */
+  .inv-name { flex: 1; min-width: 0; font-weight: 600; background: var(--card); padding-left: 0; }
+  .inv-line input, .inv-line select { font-size: 14px; padding: 7px 6px; }
+  .inv-qty { width: 86px; flex: none; text-align: center; text-align-last: center; }
+  .inv-unit { width: 54px; flex: none; }
+  .inv-pack { width: 78px; flex: none; }
+  .inv-total { flex: 1; min-width: 0; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
   .inv-urgent { border: 0; border-radius: 8px; background: var(--field); font-size: 18px; padding: 5px 8px; opacity: .35; }
   .inv-urgent[aria-pressed="true"] { opacity: 1; background: #fbeaea; }
   .inv-hist-head { font-weight: 700; padding: 4px 0; }
@@ -701,7 +714,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.11';
+const APP_VERSION = '2026-11-02.12';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -760,6 +773,21 @@ function haptic(kind) {
   if (kind === 'select') tg.HapticFeedback.selectionChanged();
   else if (kind === 'success' || kind === 'error') tg.HapticFeedback.notificationOccurred(kind);
   else tg.HapticFeedback.impactOccurred(kind || 'light');
+}
+
+// Кнопка «в работе»: сразу видно, что нажатие принято, повторно нажать нельзя
+function btnPending(btn, on, text) {
+  if (!btn) return;
+  if (on) {
+    btn.dataset.label = btn.textContent;
+    btn.textContent = text || 'Отправляю…';
+    btn.classList.add('pending');
+    btn.disabled = true;
+  } else {
+    if (btn.dataset.label) btn.textContent = btn.dataset.label;
+    btn.classList.remove('pending');
+    btn.disabled = false;
+  }
 }
 
 function showBanner(text) { const b = $('banner'); b.textContent = text; b.hidden = !text; }
@@ -3046,6 +3074,24 @@ function invShow(data) {
   renderInv();
 }
 
+// Числа для колеса: 0–100 по одному, дальше крупнее шагом — до 10 000
+function invNumbers() {
+  const out = [];
+  for (let n = 0; n <= 100; n++) out.push(n);
+  for (let n = 110; n <= 500; n += 10) out.push(n);
+  for (let n = 550; n <= 2000; n += 50) out.push(n);
+  for (let n = 2100; n <= 10000; n += 100) out.push(n);
+  return out;
+}
+
+// Общее количество: 5 × «400 шт» = «2 000 шт»
+function invTotal(x) {
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(String(x.pack || ''));
+  const q = num(x.qty);
+  if (!m || q == null || isNaN(q)) return '';
+  return fmt(q * Number(m[1].replace(',', '.'))) + (m[2] ? ' ' + m[2].trim() : '');
+}
+
 async function loadInv() {
   if (!invData) {
     const cached = tabCacheGet('inv');
@@ -3085,17 +3131,26 @@ function renderInv() {
     del.addEventListener('click', () => { invRows.splice(i, 1); invSaveDraft(); renderInv(); });
     top.append(name, urg, del);
     const line = el('div', 'inv-line');
-    const qty = el('input', 'inv-qty');
-    qty.inputMode = 'decimal'; qty.autocomplete = 'off'; qty.value = x.qty;
-    qty.placeholder = x.was !== '' ? `было ${x.was}` : 'сколько';
-    qty.addEventListener('input', () => { x.qty = qty.value; invSaveDraft(); });
+    // Сколько — колесо выбора, как будильник в iPhone
+    const qty = el('select', 'inv-qty');
+    qty.setAttribute('aria-label', 'Сколько');
+    qty.add(new Option(x.was !== '' ? `было ${x.was}` : 'сколько', ''));
+    const nums = invNumbers();
+    if (x.qty !== '' && !nums.includes(Number(x.qty))) nums.push(Number(x.qty));
+    if (x.was !== '' && !nums.includes(Number(x.was))) nums.push(Number(x.was));
+    nums.sort((a, b) => a - b).forEach(n => qty.add(new Option(String(n), String(n))));
+    qty.value = x.qty === '' ? '' : String(x.qty);
     const unit = el('input', 'inv-unit');
     unit.value = x.unit; unit.placeholder = 'шт, ящ'; unit.maxLength = 20;
-    unit.addEventListener('input', () => { x.unit = unit.value; invSaveDraft(); });
     const pack = el('input', 'inv-pack');
-    pack.value = x.pack; pack.placeholder = 'по … (400 шт)'; pack.maxLength = 30;
-    pack.addEventListener('input', () => { x.pack = pack.value; invSaveDraft(); });
-    line.append(qty, unit, pack);
+    pack.value = x.pack; pack.placeholder = 'по 400 шт'; pack.maxLength = 30;
+    const total = el('div', 'inv-total');
+    const showTotal = () => { const t = invTotal(x); total.textContent = t ? '= ' + t : ''; };
+    qty.addEventListener('change', () => { x.qty = qty.value; showTotal(); haptic('select'); invSaveDraft(); });
+    unit.addEventListener('input', () => { x.unit = unit.value; invSaveDraft(); });
+    pack.addEventListener('input', () => { x.pack = pack.value; showTotal(); invSaveDraft(); });
+    showTotal();
+    line.append(qty, unit, pack, total);
     box.append(top, line);
     card.appendChild(box);
   });
@@ -3121,7 +3176,7 @@ function renderInv() {
 
   const send = el('button', 'btn', 'Отправить инвентаризацию');
   send.type = 'button';
-  send.addEventListener('click', submitInv);
+  send.addEventListener('click', () => submitInv(send));
   out.push(send);
 
   const hist = (invData && invData.history) || [];
@@ -3138,8 +3193,9 @@ function renderInv() {
   $('invBody').replaceChildren(...out);
 }
 
-async function submitInv() {
+async function submitInv(btn) {
   if (busy) return;
+  haptic('light');
   const items = invRows.map(x => ({ name: String(x.name || '').trim(), qty: num(x.qty), unit: String(x.unit || '').trim(),
     pack: String(x.pack || '').trim(), urgent: !!x.urgent })).filter(x => x.name);
   if (!items.length) return alert_('Добавьте хотя бы одну позицию.');
@@ -3148,8 +3204,10 @@ async function submitInv() {
   if (empty && !(await confirm_(`Не заполнено количество у ${empty} ${pl(empty, 'позиции', 'позиций', 'позиций')}. Всё равно отправить?`))) return;
   if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
   setBusy(true);
+  btnPending(btn, true);
   try {
     const data = await api({ action: 'invSave', items, note: invNote.trim() });
+    const sent = data.sent;
     delete data.sent;
     invData = data;
     tabCachePut('inv', data);
@@ -3158,8 +3216,9 @@ async function submitInv() {
     renderInv();
     window.scrollTo(0, 0);
     haptic('success');
-    await alert_(data.sent ? 'Инвентаризация отправлена в чат ✅' : 'Сохранено в таблицу, но сообщение в чат не ушло.');
+    await alert_(sent ? 'Инвентаризация отправлена в чат ✅' : 'Сохранено в таблицу, но сообщение в чат не ушло.');
   } catch (e) {
+    btnPending(btn, false);
     await alert_('Не получилось отправить: ' + e.message);
   } finally {
     setBusy(false);
@@ -3263,14 +3322,18 @@ function openRepair(x) {
   } else {
     body.appendChild(el('h3', null, 'Починили?'));
     const how = el('textarea');
-    how.placeholder = 'Как починили — например «заменили тэн, мастер Иван»';
+    how.placeholder = 'Как починили — можно не писать';
     const ph = el('div', 'photos'); ph.id = 'fixPhotos';
     fixPhotos.clear();
     const done = el('button', 'btn', '✅ Починено');
     done.type = 'button';
-    done.addEventListener('click', () => {
-      if (how.value.trim().length < 2) return alert_('Напишите, как починили.');
-      repairPost({ action: 'repairFix', id: x.id, how: how.value.trim(), photos: fixPhotos.list }, 'Отмечено как починено ✅');
+    done.addEventListener('click', async () => {
+      if (done.disabled) return;
+      haptic('light');
+      btnPending(done, true);
+      const ok = await repairPost({ action: 'repairFix', id: x.id, how: how.value.trim(), photos: fixPhotos.list },
+        'Отмечено как починено ✅');
+      if (!ok) btnPending(done, false);
     });
     body.append(el('div', 'ph-head', null), ph, how, done);
     body.querySelector('.ph-head').append(el('b', null, 'Фото после'), el('small', null, 'Можно без фото'));
@@ -3313,10 +3376,15 @@ async function repairPost(body, okText) {
 }
 
 $('repairSend').addEventListener('click', async () => {
+  const btn = $('repairSend');
+  if (btn.disabled) return;
+  haptic('light');
   const what = $('repairWhat').value.trim();
   if (what.length < 3) return alert_('Напишите, что сломалось.');
+  btnPending(btn, true);
   const ok = await repairPost({ action: 'repairAdd', what, idea: $('repairIdea').value.trim(), photos: repairPhotos.list },
     'Отправлено ✅ Сообщение ушло в общий чат.');
+  btnPending(btn, false);
   if (ok) { $('repairWhat').value = ''; $('repairIdea').value = ''; repairPhotos.clear(); }
 });
 
