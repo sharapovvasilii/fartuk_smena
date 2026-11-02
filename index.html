@@ -297,7 +297,6 @@
   .scale-top b { font-weight: 700; }
   .scale-bar { height: 10px; border-radius: 5px; background: var(--field); margin-top: 4px; overflow: hidden; }
   .scale-bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
-  .scale-row.first .scale-bar i { background: var(--ok); }
   .card.own-add { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
   .own-add select, .own-add input { width: 100%; margin: 0; text-align: left; text-align-last: left; padding: 10px 12px; }
   .own-add .btn { margin-top: 2px; }
@@ -307,7 +306,7 @@
   .sign-seg button[aria-pressed="true"].plus { border-color: var(--ok); color: var(--ok); background: #e8f5ed; }
   .sign-seg button[aria-pressed="true"].minus { border-color: var(--err); color: var(--err); background: #fbeaea; }
   .own-sum.neg { color: var(--err); }
-  .own-seg .seg-btn { overflow-wrap: anywhere; }
+  .own-seg .seg-btn { overflow-wrap: anywhere; padding: 10px 2px; font-size: 12px; }
   .own-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f0f0ef; cursor: pointer; }
   .own-item:first-child { border-top: 0; }
   .own-item .own-main { flex: 1; min-width: 0; }
@@ -764,7 +763,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.21';
+const APP_VERSION = '2026-11-02.22';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1243,14 +1242,25 @@ function openItemEdit(item) {
   const cur = c.unit || 'шт';
   UNITS.concat(UNITS.includes(cur) ? [] : [cur]).forEach(u => unit.add(new Option(u, u)));
   unit.value = cur;
-  body.append(el('div', 'note', 'Название'), name, el('div', 'note', 'В чём считаем'), unit);
+  // Куда перенести: любая категория заявки (товар переезжает туда и в заявке, и в товарном учёте)
+  const group = el('select', 'full');
+  group.setAttribute('aria-label', 'Категория');
+  group.style.textAlign = 'left'; group.style.textAlignLast = 'left';
+  const curGroup = c.group || '';
+  const groups = [...new Set((config.catalog || []).map(x => x.group).filter(Boolean))];
+  if (curGroup && !groups.includes(curGroup)) groups.unshift(curGroup);
+  groups.forEach(g => group.add(new Option(g, g)));
+  group.value = curGroup;
+  body.append(el('div', 'note', 'Название'), name, el('div', 'note', 'В чём считаем'), unit,
+    el('div', 'note', 'Категория (куда перенести)'), group);
   const save = el('button', 'btn', 'Сохранить');
   save.type = 'button';
   save.addEventListener('click', () => {
     const newName = name.value.trim();
     if (newName.length < 2) return alert_('Напишите название товара.');
-    if (newName === item && unit.value === cur) return closeItem();
-    catPost({ action: 'itemEdit', name: item, newName, unit: unit.value });
+    const moved = group.value && group.value !== curGroup;
+    if (newName === item && unit.value === cur && !moved) return closeItem();
+    catPost({ action: 'itemEdit', name: item, newName, unit: unit.value, group: moved ? group.value : '' });
   });
   const del = el('button', 'btn btn-light', 'Убрать кнопку');
   del.type = 'button';
@@ -3139,7 +3149,7 @@ function renderVote() {
       m.rows.forEach((r, i) => {
         const row = el('div', 'scale-row' + (i === 0 ? ' first' : ''));
         const top = el('div', 'scale-top');
-        top.append(el('span', null, (i === 0 ? '🥇 ' : '') + r.name), el('b', null, String(r.votes)));
+        top.append(el('span', null, r.name), el('b', null, String(r.votes)));
         const bar = el('div', 'scale-bar');
         const fill = el('i');
         fill.style.width = Math.max(4, Math.round(r.votes / max * 100)) + '%';
@@ -3211,7 +3221,7 @@ async function ownerPost(body, confirmText) {
 }
 
 let ownerEdit = null;   // запись, которую сейчас правим: { id, who, title, sum }
-let ownerView = '';     // чьи затраты показаны: '' — все, иначе имя владельца
+let ownerView = '';     // чьи затраты показаны — имя владельца
 
 // Плюс — потратил на бизнес, минус — взял себе (личная покупка, личный счёт)
 function renderOwner() {
@@ -3219,41 +3229,35 @@ function renderOwner() {
   const money = n => (n < 0 ? '−' : '') + fmt(Math.abs(n)) + ' ₽';
   const out = [];
 
-  // Переключатель: «Все» или один владелец — у каждого свои суммы и свои записи
-  if (ownerView && !d.owners.includes(ownerView)) ownerView = '';
+  // Переключатель владельцев в один ряд — у каждого свои суммы и свои записи.
+  // Сначала открыт сам владелец (по имени из «Доступа»), иначе первый в списке.
+  if (!d.owners.includes(ownerView)) {
+    const me = storage(ls => ls.getItem(ME_KEY)) || '';
+    ownerView = d.owners.find(n => me && (n === me || n.startsWith(me) || me.startsWith(n))) || d.owners[0] || '';
+  }
   const pick = n => { if (ownerView !== n) { ownerView = n; ownerEdit = null; haptic('select'); renderOwner(); } };
-  const views = [''].concat(d.owners);
-  const segBox = el('div', 'card seg who-seg own-seg');
-  segBox.style.setProperty('--n', Math.min(views.length, 3));
-  views.forEach(n => {
-    const p = d.per.find(x => x.name === n);
-    const b = el('button', 'seg-btn', n || 'Все');
-    b.type = 'button';
-    b.setAttribute('aria-pressed', n === ownerView ? 'true' : 'false');
-    b.appendChild(el('small', null, money(n ? (p ? p.total : 0) : d.total)));
-    b.addEventListener('click', () => pick(n));
-    segBox.appendChild(b);
-  });
-  out.push(segBox);
+  if (d.owners.length > 1) {
+    const segBox = el('div', 'card seg who-seg own-seg');
+    segBox.style.setProperty('--n', d.owners.length);
+    d.owners.forEach(n => {
+      const p = d.per.find(x => x.name === n);
+      const b = el('button', 'seg-btn', n);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', n === ownerView ? 'true' : 'false');
+      b.appendChild(el('small', null, money(p ? p.total : 0)));
+      b.addEventListener('click', () => pick(n));
+      segBox.appendChild(b);
+    });
+    out.push(segBox);
+  }
 
   const top = el('div', 'card');
-  const cur = ownerView ? (d.per.find(x => x.name === ownerView) || { total: 0, plus: 0, minus: 0 }) : null;
+  const cur = d.per.find(x => x.name === ownerView) || { total: 0, plus: 0, minus: 0 };
   const myItems = ownerView ? d.items.filter(it => it.who === ownerView) : d.items;
-  if (cur) {
-    top.append(el('div', 'note', `${ownerView}: на бизнес минус взятое себе`), el('div', 'big', money(cur.total)));
-    top.appendChild(kv('+ На бизнес', fmt(cur.plus || 0) + ' ₽'));
-    top.appendChild(kv('− Себе (личное)', fmt(cur.minus || 0) + ' ₽'));
-    top.appendChild(kv('Записей', String(myItems.length)));
-  } else {
-    top.append(el('div', 'note', 'Итого: на бизнес минус взятое себе'), el('div', 'big', money(d.total)));
-    d.per.forEach(p => {
-      const row = kv(p.name, money(p.total), `на бизнес ${fmt(p.plus || 0)} · себе ${fmt(p.minus || 0)}`);
-      row.style.cursor = 'pointer';
-      row.addEventListener('click', () => pick(p.name));
-      top.appendChild(row);
-    });
-    if (d.per.length) top.appendChild(el('div', 'note', 'Нажмите на имя — покажу только его затраты.'));
-  }
+  top.append(el('div', 'note', `${ownerView ? ownerView + ': ' : ''}на бизнес минус взятое себе`), el('div', 'big', money(cur.total)));
+  top.appendChild(kv('+ На бизнес', fmt(cur.plus || 0) + ' ₽'));
+  top.appendChild(kv('− Себе (личное)', fmt(cur.minus || 0) + ' ₽'));
+  top.appendChild(kv('Записей', String(myItems.length)));
   out.push(top);
 
   const ed = ownerEdit;
