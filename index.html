@@ -310,7 +310,7 @@
   .inv-line input, .inv-line select { font-size: 14px; padding: 7px 6px; }
   .inv-qty { width: 84px; flex: none; text-align: center; }
   .inv-qty::placeholder { font-size: 13px; }
-  .inv-unit { width: 48px; flex: none; }
+  .inv-unit { width: 48px; flex: none; text-align: center; text-transform: lowercase; }
   .inv-po { color: var(--hint); font-size: 14px; flex: none; }
   .inv-pack { width: 54px; flex: none; text-align: center; }
   .inv-pu { width: 50px; flex: none; text-align: center; text-align-last: center; }
@@ -332,6 +332,12 @@
   .repair-text { font-size: 15px; margin: 6px 0; white-space: pre-line; }
   .repair-photo { width: 100%; border-radius: 12px; margin: 6px 0; display: block; }
   .sheet h3 { margin-top: 14px; }
+
+  /* Счета */
+  #billScreen textarea { margin: 6px 0; }
+  #billScreen .btn { margin-top: 4px; }
+  .bill-field { display: block; width: 100%; margin: 6px 0; }
+  .bill-sum { font-weight: 700; white-space: nowrap; }
 
   /* Название магазина в списке закупки — кнопка с адресом */
   .psec-title.store-link {
@@ -440,6 +446,7 @@
 <div class="card seg tabs" id="tabs" hidden>
   <button type="button" class="seg-btn" data-tab="report" hidden>Отчёт</button>
   <button type="button" class="seg-btn" data-tab="order" hidden>Срочная заявка</button>
+  <button type="button" class="seg-btn" data-tab="bills" hidden>Счета</button>
   <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="inv" hidden>Инвентаризация</button>
@@ -667,6 +674,25 @@
   <input type="file" id="fixPhotoInput" accept="image/*" multiple hidden>
 </main>
 
+<!-- Счета: присылают все, оплачивают владелец и управляющий -->
+<main id="billScreen" hidden>
+  <header>
+    <h1>Счета</h1>
+    <div class="sub">Фото счёта и от кого — владелец оплатит</div>
+  </header>
+  <h2 class="sec">Новый счёт</h2>
+  <div class="card">
+    <div class="ph-head"><b>Фото счёта</b><small>Обязательно</small></div>
+    <div class="photos" id="billPhotos"></div>
+    <input type="file" id="billPhotoInput" accept="image/*" multiple hidden>
+    <input type="text" class="bill-field" id="billFrom" maxlength="100" autocomplete="off" placeholder="От кого счёт — например «Инкотрейд»">
+    <input type="text" class="bill-field" id="billSum" inputmode="decimal" autocomplete="off" placeholder="Сумма, ₽ (если знаете)">
+    <textarea id="billNote" placeholder="Комментарий — за что, до какого числа оплатить (можно не писать)"></textarea>
+    <button type="button" class="btn" id="billSend">Отправить счёт</button>
+  </div>
+  <div id="billList"></div>
+</main>
+
 <!-- Владельцы: траты на бизнес (только роль «владелец») -->
 <main id="ownerScreen" hidden>
   <header>
@@ -719,7 +745,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.13';
+const APP_VERSION = '2026-11-02.15';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1583,6 +1609,7 @@ function showScreen(name) {
   $('voteScreen').hidden = name !== 'vote';
   $('invScreen').hidden = name !== 'inv';
   $('repairScreen').hidden = name !== 'repair';
+  $('billScreen').hidden = name !== 'bills';
   $('ownerScreen').hidden = name !== 'owner';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
@@ -1663,7 +1690,7 @@ function myTgId() {
 
 // Телефон помнит последний ответ вкладок «Инвентаризация», «Ремонт», «Затраты»:
 // показываем сразу, свежее подтягиваем в фоне. Только для этого же человека.
-const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1' };
+const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1', bills: 'fartuk-bills-v1' };
 function tabCacheGet(tab) {
   const c = storage(ls => JSON.parse(ls.getItem(TAB_KEYS[tab]) || 'null'));
   return c && c.uid === myTgId() ? c.data : null;
@@ -1681,6 +1708,7 @@ function preloadTabs(role, boss) {
   if (boss) loadOwner();
   setTimeout(() => {
     loadRepairs();
+    loadBills();
     if (role === 'owner' || role === 'buyer') loadInv();
   }, 1500);
 }
@@ -1766,15 +1794,15 @@ async function init() {
 
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
-const TAB_SCREENS = { report: 'form', order: 'order', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
+const TAB_SCREENS = { report: 'form', order: 'order', bills: 'bills', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
   rev: 'revenue', pay: 'salary', own: 'owner' };
 let curTab = 'report';
 
 function setupTabs(role, boss) {
   const show = role === 'owner'
-    ? ['report', 'order', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
-    : role === 'buyer' ? ['buy', 'inv', 'repair']
-    : ['report', 'order', 'vote', 'repair'];
+    ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
+    : role === 'buyer' ? ['bills', 'buy', 'inv', 'repair']
+    : ['report', 'order', 'bills', 'vote', 'repair'];
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
     b.hidden = !show.includes(b.dataset.tab);
@@ -1805,6 +1833,7 @@ function setTab(tab) {
   if (tab === 'vote') renderVote();
   if (tab === 'inv') loadInv();
   if (tab === 'repair') loadRepairs();
+  if (tab === 'bills') loadBills();
   if (tab === 'own') loadOwner();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
@@ -3139,7 +3168,10 @@ function renderInv() {
     qty.placeholder = x.was !== '' ? `было ${x.was}` : 'сколько';
     qty.value = x.qty;
     const unit = el('input', 'inv-unit');
-    unit.value = x.unit; unit.placeholder = 'шт, ящ'; unit.maxLength = 20;
+    // Единица — всегда с маленькой буквы («Кор» → «кор»), клавиатура без заглавной
+    x.unit = String(x.unit || '').toLowerCase();
+    unit.value = x.unit; unit.placeholder = 'шт'; unit.maxLength = 20;
+    unit.autocapitalize = 'none'; unit.setAttribute('autocapitalize', 'none'); unit.autocomplete = 'off';
     // «по 400 шт»: число — цифрами, единица — выбором
     const pm = /^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(String(x.pack || ''));
     const pack = el('input', 'inv-pack');
@@ -3158,7 +3190,11 @@ function renderInv() {
     const digits = inp => inp.value.replace(/[^\d.,]/g, '').replace(/^([^.,]*[.,]\d*).*$/, '$1');
     const setPack = () => { x.pack = pack.value ? pack.value + ' ' + pu.value : ''; showTotal(); invSaveDraft(); };
     qty.addEventListener('input', () => { qty.value = digits(qty); x.qty = qty.value; showTotal(); invSaveDraft(); });
-    unit.addEventListener('input', () => { x.unit = unit.value; invSaveDraft(); });
+    unit.addEventListener('input', () => {
+      const low = unit.value.toLowerCase();
+      if (low !== unit.value) { const p = unit.selectionStart; unit.value = low; try { unit.setSelectionRange(p, p); } catch (e) {} }
+      x.unit = low; invSaveDraft();
+    });
     pack.addEventListener('input', () => { pack.value = digits(pack); setPack(); });
     pu.addEventListener('change', setPack);
     showTotal();
@@ -3208,7 +3244,7 @@ function renderInv() {
 async function submitInv(btn) {
   if (busy) return;
   haptic('light');
-  const items = invRows.map(x => ({ name: String(x.name || '').trim(), qty: num(x.qty), unit: String(x.unit || '').trim(),
+  const items = invRows.map(x => ({ name: String(x.name || '').trim(), qty: num(x.qty), unit: String(x.unit || '').trim().toLowerCase(),
     pack: String(x.pack || '').trim(), urgent: !!x.urgent })).filter(x => x.name);
   if (!items.length) return alert_('Добавьте хотя бы одну позицию.');
   if (items.some(x => isNaN(x.qty))) return alert_('В количестве должно быть число.');
@@ -3398,6 +3434,170 @@ $('repairSend').addEventListener('click', async () => {
     'Отправлено ✅ Сообщение ушло в общий чат.');
   btnPending(btn, false);
   if (ok) { $('repairWhat').value = ''; $('repairIdea').value = ''; repairPhotos.clear(); }
+});
+
+/* ---------- счета: присылают все, оплачивают владелец и управляющий ---------- */
+
+let billData = null;
+const billPhotos = photoSet('billPhotos', 'billPhotoInput', 6);
+billPhotos.mount();
+
+async function loadBills() {
+  if (!billData) {
+    const cached = tabCacheGet('bills');
+    if (cached) { billData = cached; renderBills(); }
+    else $('billList').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
+  try {
+    const res = await fetch(`${API_URL}?action=bills&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    tabCachePut('bills', data);
+    if (JSON.stringify(data) !== JSON.stringify(billData)) { billData = data; renderBills(); }
+  } catch (e) {
+    if (!billData) $('billList').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+function billItem(x) {
+  const row = el('div', 'repair-item');
+  const main = el('div', 'repair-main');
+  main.appendChild(el('div', 'repair-what', x.from || 'Счёт'));
+  const bits = [x.status === 'оплачен' ? `оплачен ${x.paidAt} · ${x.paidBy}` : `${x.date} · ${x.who}`];
+  if (x.photos) bits.push(`📷 ${x.photos}`);
+  main.appendChild(el('small', null, bits.join(' · ')));
+  row.appendChild(main);
+  if (x.sum != null) row.appendChild(el('span', 'bill-sum', fmt(x.sum) + ' ₽'));
+  row.appendChild(el('span', 'repair-go', '›'));
+  row.addEventListener('click', () => openBill(x));
+  return row;
+}
+
+function renderBills() {
+  const d = billData;
+  const out = [];
+  out.push(el('h2', 'sec', `Не оплачены${d.open.length ? ' · ' + d.open.length : ''}` +
+    (d.openSum ? ` · ${fmt(d.openSum)} ₽` : '')));
+  const open = el('div', 'card');
+  if (!d.open.length) open.appendChild(el('div', 'note', 'Неоплаченных счетов нет 👍'));
+  d.open.forEach(x => open.appendChild(billItem(x)));
+  out.push(open);
+  if (d.paid.length) {
+    out.push(el('h2', 'sec', 'Оплаченные'));
+    const done = el('div', 'card');
+    d.paid.forEach(x => done.appendChild(billItem(x)));
+    out.push(done);
+  }
+  $('billList').replaceChildren(...out);
+}
+
+// Фото счёта — по нажатию, через сервер
+function billPhotoLoader(x) {
+  const wrap = el('div');
+  if (!x.photos) return wrap;
+  const label = `📷 Фото счёта (${x.photos})`;
+  const btn = el('button', 'btn btn-light', label);
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Загружаю фото…';
+    try {
+      for (let n = 0; n < x.photos; n++) {
+        const res = await fetch(`${API_URL}?action=billPhoto&id=${encodeURIComponent(x.id)}&n=${n}&initData=${encodeURIComponent(initData)}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+        const img = el('img', 'repair-photo');
+        img.src = data.data; img.alt = `Фото счёта ${n + 1}`;
+        wrap.appendChild(img);
+      }
+      btn.remove();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = label;
+      alert_('Не удалось загрузить фото: ' + e.message);
+    }
+  });
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+function openBill(x) {
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, x.from || 'Счёт'));
+  body.appendChild(el('div', 'grp', `${x.date} · прислал(а) ${x.who}`));
+  if (x.sum != null) body.appendChild(el('div', 'repair-text', `💰 Сумма: ${fmt(x.sum)} ₽`));
+  if (x.note) body.appendChild(el('div', 'repair-text', '📝 ' + x.note));
+  body.appendChild(billPhotoLoader(x));
+  if (x.status === 'оплачен') {
+    body.appendChild(el('h3', null, '✅ Оплачен'));
+    body.appendChild(el('div', 'grp', `${x.paidAt} · ${x.paidBy}`));
+  }
+  if (shownRole === 'owner') {
+    if (x.status === 'оплачен') {
+      const undo = el('button', 'btn btn-light', 'Вернуть в неоплаченные');
+      undo.type = 'button';
+      undo.addEventListener('click', () => billPost({ action: 'billUnpaid', id: x.id }));
+      body.appendChild(undo);
+    } else {
+      const paid = el('button', 'btn', '✅ Оплачено');
+      paid.type = 'button';
+      paid.addEventListener('click', async () => {
+        if (paid.disabled) return;
+        haptic('light');
+        btnPending(paid, true);
+        const ok = await billPost({ action: 'billPaid', id: x.id }, 'Счёт перенесён в оплаченные ✅');
+        if (!ok) btnPending(paid, false);
+      });
+      body.appendChild(paid);
+    }
+    const del = el('button', 'btn btn-light', 'Удалить счёт');
+    del.type = 'button'; del.style.color = 'var(--err)';
+    del.addEventListener('click', async () => {
+      if (!(await confirm_('Удалить этот счёт?'))) return;
+      billPost({ action: 'billDelete', id: x.id });
+    });
+    body.appendChild(del);
+  }
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.appendChild(close);
+  $('itemSheet').hidden = false;
+}
+
+async function billPost(body, okText) {
+  if (busy) return false;
+  if (!inTg || !apiReady) { alert_('Откройте приложение через бота в Телеграме.'); return false; }
+  setBusy(true);
+  try {
+    billData = await api(body);
+    tabCachePut('bills', billData);
+    closeItem();
+    renderBills();
+    haptic('success');
+    if (okText) await alert_(okText);
+    return true;
+  } catch (e) {
+    await alert_('Не получилось: ' + e.message);
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
+
+$('billSend').addEventListener('click', async () => {
+  const btn = $('billSend');
+  if (btn.disabled) return;
+  haptic('light');
+  const from = $('billFrom').value.trim();
+  const sum = num($('billSum').value);
+  if (!billPhotos.list.length) return alert_('Сфотографируйте счёт.');
+  if (from.length < 2) return alert_('Напишите, от кого счёт.');
+  if (sum !== null && !(sum > 0)) return alert_('Сумму напишите числом — или оставьте пустой.');
+  btnPending(btn, true);
+  const ok = await billPost({ action: 'billAdd', from, sum, note: $('billNote').value.trim(), photos: billPhotos.list },
+    'Счёт отправлен ✅');
+  btnPending(btn, false);
+  if (ok) { $('billFrom').value = ''; $('billSum').value = ''; $('billNote').value = ''; billPhotos.clear(); }
 });
 
 /* ---------- исправление отправленного отчёта ---------- */
