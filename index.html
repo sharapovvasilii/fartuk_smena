@@ -48,7 +48,7 @@
 
   /* Заголовки разделов — над карточками */
   .sec { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; margin: 18px 12px 8px; }
-  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note, #staffBody > .note { padding: 0 12px; }
+  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note, #staffBody > .note, #myPayBody > .note { padding: 0 12px; }
   .card { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   h3 { font-size: 15px; font-weight: 700; margin: 8px 0 2px; }
   .lbl { margin: 8px 0 2px; }
@@ -294,6 +294,15 @@
   .vote-pick .mark { color: var(--accent); font-weight: 700; }
   .vote-prize { border: 1.5px solid var(--accent); }
   /* Сотрудники и должности (только владелец) */
+  /* Моя з/п (все, кроме снабженца) */
+  .my-total { text-align: center; padding: 12px; }
+  .my-total .big { color: var(--accent); }
+  .my-wait { color: var(--hint); font-size: 12px; font-weight: 600; }
+  .my-part { color: var(--warn); font-size: 12px; font-weight: 600; }
+  .my-sum { white-space: nowrap; flex: none; font-size: 17px; }
+  .my-units .pay-unit:first-child { border-top: none; }
+  .my-shift { padding: 4px 0 !important; }
+  .my-shift small { display: block; color: var(--hint); font-size: 12px; }
   .staff-row { border-bottom: 1px solid var(--field); }
   .staff-row:last-child { border-bottom: none; }
   .staff-row select { width: 52%; flex: none; }
@@ -471,6 +480,7 @@
   <button type="button" class="seg-btn" data-tab="order" hidden>Срочная заявка</button>
   <button type="button" class="seg-btn" data-tab="bills" hidden>Счета</button>
   <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
+  <button type="button" class="seg-btn" data-tab="mypay" hidden>Моя з/п</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="inv" hidden>Инвентаризация</button>
   <button type="button" class="seg-btn" data-tab="repair" hidden>Ремонт</button>
@@ -482,7 +492,7 @@
 
 <main id="form">
 <div class="card edit-card" id="editBanner" hidden>
-  <b>✏️ Режим исправления</b>
+  <b>Режим исправления</b>
   <p id="editBannerText"></p>
   <button type="button" class="link" onclick="cancelEdit()">Отменить и вернуться к новому отчёту</button>
 </div>
@@ -494,7 +504,7 @@
 
 <div class="card edit-card" id="editOffer" hidden>
   <p id="editOfferText"></p>
-  <button type="button" class="btn btn-light" id="editStart">✏️ Исправить отправленный отчёт</button>
+  <button type="button" class="btn btn-light" id="editStart">Исправить отправленный отчёт</button>
 </div>
 <div class="card edit-card" id="reportedNote" hidden><p id="reportedNoteText"></p></div>
 
@@ -729,6 +739,15 @@
   <div id="ownerBody"></div>
 </main>
 
+<!-- Моя з/п: своя невыплаченная зарплата (все, кроме снабженца) -->
+<main id="myPayScreen" hidden>
+  <header>
+    <h1>Моя з/п</h1>
+    <div class="sub" id="myPaySub">Сколько вам ещё не выплатили</div>
+  </header>
+  <div id="myPayBody"></div>
+</main>
+
 <!-- Сотрудники и должности (только роль «владелец») -->
 <main id="staffScreen" hidden>
   <header>
@@ -781,7 +800,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.26';
+const APP_VERSION = '2026-11-03.29';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1710,6 +1729,7 @@ function showScreen(name) {
   $('billScreen').hidden = name !== 'bills';
   $('ownerScreen').hidden = name !== 'owner';
   $('staffScreen').hidden = name !== 'staff';
+  $('myPayScreen').hidden = name !== 'mypay';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
   try {
@@ -1790,7 +1810,7 @@ function myTgId() {
 // Телефон помнит последний ответ вкладок «Инвентаризация», «Ремонт», «Затраты»:
 // показываем сразу, свежее подтягиваем в фоне. Только для этого же человека.
 const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1', bills: 'fartuk-bills-v1',
-  staff: 'fartuk-staff-v1' };
+  staff: 'fartuk-staff-v1', mypay: 'fartuk-mypay-v1' };
 function tabCacheGet(tab) {
   const c = storage(ls => JSON.parse(ls.getItem(TAB_KEYS[tab]) || 'null'));
   return c && c.uid === myTgId() ? c.data : null;
@@ -1811,6 +1831,7 @@ function preloadTabs(role, boss) {
     if (role !== 'buyer') loadBills();   // снабженец счета не видит
     if (role === 'owner' || role === 'buyer') loadInv();
     if (boss) loadStaffList();
+    if (role !== 'buyer') loadMyPay();
   }, 1500);
 }
 
@@ -1903,15 +1924,15 @@ async function init() {
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
 const TAB_SCREENS = { report: 'form', order: 'order', bills: 'bills', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
-  rev: 'revenue', pay: 'salary', own: 'owner', staff: 'staff' };
+  rev: 'revenue', pay: 'salary', own: 'owner', staff: 'staff', mypay: 'mypay' };
 let curTab = 'report';
 
 // canReport — вкладка «Отчёт» только у администраторов, владельца и управляющего
 function setupTabs(role, boss, canReport) {
   let show = role === 'owner'
-    ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['staff', 'own'] : [])
+    ? ['report', 'order', 'bills', 'vote', 'mypay', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['staff', 'own'] : [])
     : role === 'buyer' ? ['buy', 'inv', 'repair']
-    : ['report', 'order', 'bills', 'vote', 'repair'];
+    : ['report', 'order', 'bills', 'vote', 'mypay', 'repair'];
   if (canReport === false) show = show.filter(t => t !== 'report');
   if (!show.includes(curTab)) { curTab = show[0]; showScreen(TAB_SCREENS[curTab]); }
   const bar = $('tabs');
@@ -1947,6 +1968,7 @@ function setTab(tab) {
   if (tab === 'bills') loadBills();
   if (tab === 'own') loadOwner();
   if (tab === 'staff') loadStaffList();
+  if (tab === 'mypay') loadMyPay();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
   if (tab === 'rev' && !revLoaded) pickPreset('week');
@@ -3045,15 +3067,18 @@ function renderPay(d) {
       if (u.key.startsWith('неделя:')) small += ` · ${u.shifts.length} ${pl(u.shifts.length, 'смена', 'смены', 'смен')}`;
       if (small) info.appendChild(el('small', null, small));
       // Когда выдавали: аванс 20 000 — 02.11.2026
-      if (isMonth) (u.log || []).forEach(p => {
+      // Был аванс — следующая выплата это «остаток», а не «доплата»
+      const hadAdvance = (u.log || []).some(p => /^аванс/.test(p.label));
+      if (isMonth || hadAdvance) (u.log || []).forEach(p => {
         const kind = /^аванс/.test(p.label) ? 'аванс' : /остаток/.test(p.label) ? 'остаток' : 'выдано';
         info.appendChild(el('small', null, `${kind} ${fmt(p.sum)} ₽ — ${p.date}`));
       });
 
       const act = el('div', 'pay-act');
       if (u.due > 0) {
-        if (u.paid > 0 && !isMonth) act.appendChild(el('div', 'pay-extra', `доплата +${fmt(u.due)}`));
-        const b = el('button', 'pay-btn', `${u.paid > 0 ? (isMonth ? 'Остаток' : 'Доплатить') : 'Выплатить'} ${fmt(u.due)} ₽`);
+        const rest = isMonth || hadAdvance;
+        if (u.paid > 0 && !rest) act.appendChild(el('div', 'pay-extra', `доплата +${fmt(u.due)}`));
+        const b = el('button', 'pay-btn', `${u.paid > 0 ? (rest ? 'Остаток' : 'Доплатить') : 'Выплатить'} ${fmt(u.due)} ₽`);
         b.type = 'button';
         b.addEventListener('click', e => {
           e.stopPropagation();
@@ -3075,8 +3100,8 @@ function renderPay(d) {
       line.append(info, act);
       box.appendChild(line);
 
-      // Аванс — для окладов
-      if (isMonth && u.due > 0) {
+      // Аванс — всем: оклад, неделя, смена, сотрудник месяца
+      if (u.due > 0) {
         const adv = el('div', 'adv');
         const input = el('input');
         input.inputMode = 'decimal'; input.placeholder = 'сумма'; input.setAttribute('aria-label', 'Сумма аванса');
@@ -3219,6 +3244,78 @@ async function castVote(name) {
 }
 
 /* ---------- вкладка «Владельцы»: траты на бизнес ---------- */
+
+/* ---------- моя з/п: своя невыплаченная зарплата ---------- */
+
+let myPayData = null;   // { name, today, found, units: [{ key, from, to, month, total, paid, due, shifts }], due }
+
+async function loadMyPay() {
+  if (!myPayData) {
+    const cached = tabCacheGet('mypay');
+    if (cached) { myPayData = cached; renderMyPay(); }
+    else $('myPayBody').replaceChildren(el('div', 'loading-note', 'Загружаю…'));
+  }
+  try {
+    const res = await fetch(`${API_URL}?action=myPay&initData=${encodeURIComponent(initData)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    tabCachePut('mypay', data);
+    if (JSON.stringify(data) !== JSON.stringify(myPayData)) { myPayData = data; renderMyPay(); }
+  } catch (e) {
+    if (!myPayData) $('myPayBody').replaceChildren(el('div', 'loading-note', 'Не удалось загрузить: ' + e.message));
+  }
+}
+
+function renderMyPay() {
+  const d = myPayData;
+  const out = [];
+  $('myPaySub').textContent = d.name ? `${d.name} · сколько ещё не выплачено` : 'Сколько вам ещё не выплатили';
+  if (!d.found) {
+    out.push(el('div', 'card', null));
+    out[0].appendChild(el('div', 'note', 'Не нашёл вас в списке сотрудников. Попросите владельца проверить ваше имя на листах «Доступ» и «Сотрудники».'));
+    $('myPayBody').replaceChildren(...out);
+    return;
+  }
+  const top = el('div', 'card my-total');
+  top.append(el('div', 'note', 'К выплате'), el('div', 'big', `${fmt(d.due)} ₽`));
+  if (!d.units.length) top.appendChild(el('div', 'note', 'Сейчас всё выплачено 👍'));
+  out.push(top);
+
+  if (d.units.length) {
+    const card = el('div', 'card my-units');
+    d.units.forEach(u => {
+      const box = el('div', 'pay-unit');
+      const line = el('div', 'pay-line');
+      const left = el('div');
+      left.appendChild(el('b', null, capFirst(unitLabel(u))));
+      // Неделя ещё не закончилась — сумма будет расти
+      if (u.key.startsWith('неделя:') && d.today <= u.to) left.appendChild(el('div', 'my-wait', 'неделя ещё идёт — сумма может вырасти'));
+      if (u.paid > 0) left.appendChild(el('div', 'my-part', `уже выдано ${fmt(u.paid)} ₽ из ${fmt(u.total)} ₽`));
+      line.append(left, el('b', 'my-sum', `${fmt(u.due)} ₽`));
+      box.appendChild(line);
+      if (u.shifts && u.shifts.length) {
+        const det = el('div', 'pay-shifts');
+        u.shifts.slice().sort((a, b) => (a.iso < b.iso ? -1 : 1)).forEach(s => {
+          const bits = [];
+          if (s.time) bits.push(`${s.time}, ${s.hours} ч = ${fmt(s.base)}`);
+          if (s.bonus) bits.push(`премия ${fmt(s.bonus)}`);
+          if (s.senior) bits.push(`старший ${fmt(s.senior)}`);
+          if (s.gis) bits.push(`2ГИС ${fmt(s.gis)}`);
+          if (s.drinks) bits.push(`морсы ${s.bottles} бут. = ${fmt(s.drinks)}`);
+          const row = el('div', 'my-shift');
+          row.append(el('b', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}${s.role ? ' · ' + s.role : ''} — ${fmt(s.total)} ₽`),
+            el('small', null, bits.join(' + ')));
+          det.appendChild(row);
+        });
+        box.appendChild(det);
+      }
+      card.appendChild(box);
+    });
+    out.push(card);
+  }
+  out.push(el('div', 'note', 'Когда зарплату выдадут, она отсюда пропадёт. Если сумма кажется неправильной — скажите управляющему.'));
+  $('myPayBody').replaceChildren(...out);
+}
 
 /* ---------- сотрудники и должности (только владелец) ---------- */
 
