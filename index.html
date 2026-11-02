@@ -48,7 +48,7 @@
 
   /* Заголовки разделов — над карточками */
   .sec { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; margin: 18px 12px 8px; }
-  main > .note, main > p.note, #payBody > .note, #revBody > .note { padding: 0 12px; }
+  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note { padding: 0 12px; }
   .card { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   h3 { font-size: 15px; font-weight: 700; margin: 8px 0 2px; }
   .lbl { margin: 8px 0 2px; }
@@ -85,27 +85,31 @@
   .exp .exp-sum { width: 96px; text-align: right; }
   .x { background: none; border: 0; color: var(--hint); font-size: 22px; padding: 0 6px; }
   .exp > .x, .drink > .x { order: -1; flex-basis: 100%; text-align: right; line-height: 1; padding: 0 2px; margin-bottom: -4px; }
+  /* Первую строку морсов не убирают — у неё нет ×, и отступ до подписи как у всех */
+  #drinks .drink:first-child > .x { display: none; }
   .staff-top .x { padding: 0 2px 0 6px; }
   .link { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 500; padding: 6px 0; }
 
   /* Сотрудники на смене */
-  .staff { border-top: 1px solid #f0f0ef; padding: 6px 0 8px; }
+  /* Строка смены — сетка из двух столбцов: слева «должность» над «кто» (одной ширины), справа × над временем */
+  .staff { border-top: 1px solid #f0f0ef; padding: 10px 0; display: grid;
+    grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; row-gap: 6px; align-items: center; }
   .staff:first-child { border-top: 0; }
-  .staff-top { display: flex; align-items: center; gap: 6px; }
-  /* Должность — выпадающий список с галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
-  .staff-top { justify-content: space-between; }
+  .staff-top, .staff .s-line { display: contents; }
+  .staff-top .x { justify-self: end; }
+  .staff > .full { grid-column: 1 / -1; margin: 0; }
+  /* Должность — белое окно с рамкой и галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
   .staff-top .s-role {
-    flex: none; width: auto; max-width: 75%; text-align: left; text-align-last: left; font-weight: 600;
-    padding: 5px 24px 5px 0; border-radius: 0;
-    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 4px center;
+    width: 100%; min-width: 0; text-align: left; text-align-last: left; font-weight: 600; font-size: 14px;
+    padding: 7px 28px 7px 10px; border: 1px solid #e2e2df; border-radius: 8px;
+    background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
   }
-  .staff .s-name { width: 100%; text-align: left; text-align-last: left; margin: 2px 0 4px; }
   /* «Кто» и время — в одной строке */
-  .staff .s-line { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
-  .staff .s-line .s-name { flex: 1; min-width: 0; width: auto; margin: 0; font-size: 14px; }
+  .staff .s-name { width: 100%; min-width: 0; text-align: left; text-align-last: left; margin: 0; font-size: 14px;
+    border: 1px solid transparent; }
   .staff .s-line .pair { flex: none; gap: 3px; }
   .staff .s-line .pair input { width: 76px; padding: 7px 2px; font-size: 14px; }
-  .staff .s-pay { font-size: 12px; color: var(--hint); text-align: right; min-height: 16px; }
+  .staff .s-pay { display: none; }   /* «11 ч · ≈ 2 200 ₽» под строкой убрали */
   .staff .s-pay b { color: var(--text); font-weight: 600; }
   .senior-tag { color: var(--accent); font-size: 12px; font-weight: 700; }
 
@@ -202,6 +206,8 @@
   .store .addr-row input { flex: 1; min-width: 0; background: var(--card); }
   .store .addr-row .btn { width: auto; padding: 8px 12px; font-size: 14px; margin: 0; }
   .store .st-head { display: flex; justify-content: space-between; align-items: center; }
+  .store .st-name { display: flex; align-items: center; }
+  .store .st-name .cat-edit { font-size: 22px; padding: 0 10px; }
   .store-add { display: flex; gap: 6px; margin: 8px 0; }
   .store-add select { flex: 1; width: auto; text-align: left; text-align-last: left; }
   .store-add .btn { width: auto; padding: 8px 14px; font-size: 14px; margin: 0; }
@@ -282,7 +288,7 @@
   .psec-title.store-link::after { content: ' ›'; }
 
   /* Отделы списка закупки */
-  .drag-hint { font-size: 12px; margin: -4px 12px 8px; }
+  .drag-hint { font-size: 12px; margin: -4px 0 8px; }   /* отступ 12px даёт правило «main > p.note» */
   .psec { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   .psec.empty { display: none; }
   #sections.dragging .psec.empty, #sections.editing .psec.empty { display: block; }
@@ -628,7 +634,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.5';
+const APP_VERSION = '2026-11-02.6';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1690,7 +1696,30 @@ function closeItem() { $('itemSheet').hidden = true; }
 function storeCard(s, reopen, onRemove) {
   const card = el('div', 'store');
   const head = el('div', 'st-head');
-  head.appendChild(el('b', null, s.name));
+  const nameBox = el('div', 'st-name');
+  const title = el('b', null, s.name);
+  const pen = el('button', 'cat-edit', '✎');
+  pen.type = 'button'; pen.setAttribute('aria-label', `Переименовать магазин ${s.name}`);
+  pen.addEventListener('click', () => {
+    // Название меняется на месте: поле + «Сохранить»
+    const row = el('div', 'addr-row');
+    const inp = el('input');
+    inp.value = s.name; inp.maxLength = 60; inp.placeholder = 'Название магазина';
+    const ok = el('button', 'btn', 'Сохранить');
+    ok.type = 'button';
+    ok.addEventListener('click', async () => {
+      const name = inp.value.trim();
+      if (name.length < 2) return alert_('Напишите название магазина.');
+      if (name === s.name) return row.replaceWith(head);
+      await purchaseOp({ op: 'storeRename', store: s.name, name });
+      if (reopen) reopen(name);
+    });
+    row.append(inp, ok);
+    head.replaceWith(row);
+    inp.focus();
+  });
+  nameBox.append(title, pen);
+  head.appendChild(nameBox);
   if (onRemove) {
     const x = el('button', 'x', '×');
     x.type = 'button'; x.setAttribute('aria-label', `Убрать магазин ${s.name} у товара`);
@@ -1740,7 +1769,7 @@ function openStore(s) {
   haptic('light');
   const body = $('itemSheetBody');
   body.textContent = '';
-  body.appendChild(storeCard(s, () => openStore(storeInfo(s.name))));
+  body.appendChild(storeCard(s, newName => openStore(storeInfo(newName || s.name))));
   const close = el('button', 'btn btn-light', 'Закрыть');
   close.type = 'button';
   close.addEventListener('click', closeItem);
