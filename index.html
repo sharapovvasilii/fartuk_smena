@@ -87,7 +87,13 @@
   .staff { border-top: 1px solid #f0f0ef; padding: 6px 0 8px; }
   .staff:first-child { border-top: 0; }
   .staff-top { display: flex; align-items: center; gap: 6px; }
-  .staff-top .s-role { flex: 1; width: auto; text-align: left; text-align-last: left; font-weight: 600; background: transparent; padding-left: 0; }
+  /* Должность — выпадающий список с галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
+  .staff-top { justify-content: space-between; }
+  .staff-top .s-role {
+    flex: none; width: auto; max-width: 75%; text-align: left; text-align-last: left; font-weight: 600;
+    padding: 5px 30px 5px 10px; border-radius: 8px;
+    background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
+  }
   .staff .s-name { width: 100%; text-align: left; text-align-last: left; margin: 2px 0 4px; }
   /* «Кто» и время — в одной строке */
   .staff .s-line { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
@@ -102,6 +108,8 @@
   .srow { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 2px 0; }
   .srow > span { flex: 1; min-width: 0; }
   .srow input { width: 76px; text-align: right; }
+  /* Заголовки категорий в товарном учёте — той же высоты, что строки товаров: расстояния одинаковые */
+  #stock h3, #stockView h3 { display: flex; align-items: center; min-height: 40px; margin: 0; padding: 2px 0; }
 
   /* Заявка */
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
@@ -118,6 +126,11 @@
   .cgroup[open] summary::after { content: '▴'; }
   .cgroup .cnt { color: var(--accent); font-weight: 700; margin-left: 6px; }
   .cgroup summary span { flex: 1; }
+  .cgroup .cat-typed { min-height: 44px; margin: 0 0 10px; font-size: 14px; }
+  .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 15px; padding: 0 10px; }
+  .cat-tools { display: flex; justify-content: flex-end; }
+  .merge-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+  .merge-list .chip { background: var(--field); color: var(--text); }
 
   .btn {
     display: block; width: 100%; border: 0; border-radius: 12px; padding: 15px;
@@ -145,7 +158,7 @@
   /* Морсы */
   .drink { display: flex; gap: 6px; margin: 6px 0; align-items: center; }
   .drink select { flex: 1; min-width: 0; width: auto; text-align: left; text-align-last: left; }
-  .drink input { width: 70px; text-align: right; }
+  .drink input { width: 96px; text-align: right; }
 
   .edit-card { border: 1.5px solid var(--accent); padding: 12px; }
   .edit-card p { margin: 4px 0 6px; font-size: 14px; }
@@ -178,7 +191,14 @@
   .store div { font-size: 14px; margin-top: 3px; }
   .store .muted { color: var(--hint); }
   .store a { color: var(--accent); text-decoration: none; font-weight: 600; }
-  .store .map-btn { margin-top: 8px; width: 100%; background: var(--card); color: var(--accent); }
+  .store .map-btn { margin-top: 8px; width: 100%; background: var(--card); color: var(--ok); }
+  .store .addr-row { display: flex; gap: 6px; margin-top: 6px; }
+  .store .addr-row input { flex: 1; min-width: 0; background: var(--card); }
+  .store .addr-row .btn { width: auto; padding: 8px 12px; font-size: 14px; margin: 0; }
+  .store .st-head { display: flex; justify-content: space-between; align-items: center; }
+  .store-add { display: flex; gap: 6px; margin: 8px 0; }
+  .store-add select { flex: 1; width: auto; text-align: left; text-align-last: left; }
+  .store-add .btn { width: auto; padding: 8px 14px; font-size: 14px; margin: 0; }
   .sheet .btn { margin-top: 10px; }
 
   /* Вкладки: число столбцов задаётся из кода */
@@ -233,10 +253,16 @@
   .scale-bar { height: 10px; border-radius: 5px; background: var(--field); margin-top: 4px; overflow: hidden; }
   .scale-bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
   .scale-row.first .scale-bar i { background: var(--ok); }
-  .own-add { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
-  .own-add select { width: 100%; text-align: left; text-align-last: left; }
-  .own-add input { width: 100%; }
-  .own-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f0f0ef; }
+  .card.own-add { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+  .own-add select, .own-add input { width: 100%; margin: 0; text-align: left; text-align-last: left; padding: 10px 12px; }
+  .own-add .btn { margin-top: 2px; }
+  .sign-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .sign-seg button { font: inherit; font-size: 14px; font-weight: 600; border: 1.5px solid transparent; border-radius: 10px;
+    padding: 10px 6px; background: var(--field); color: var(--hint); }
+  .sign-seg button[aria-pressed="true"].plus { border-color: var(--ok); color: var(--ok); background: #e8f5ed; }
+  .sign-seg button[aria-pressed="true"].minus { border-color: var(--err); color: var(--err); background: #fbeaea; }
+  .own-sum.neg { color: var(--err); }
+  .own-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f0f0ef; cursor: pointer; }
   .own-item:first-child { border-top: 0; }
   .own-item .own-main { flex: 1; min-width: 0; }
   .own-item small { display: block; color: var(--hint); font-size: 12px; }
@@ -348,12 +374,12 @@
 <!-- Вкладки -->
 <div class="card seg tabs" id="tabs" hidden>
   <button type="button" class="seg-btn" data-tab="report" hidden>Отчёт</button>
-  <button type="button" class="seg-btn" data-tab="order" hidden>Заявка</button>
+  <button type="button" class="seg-btn" data-tab="order" hidden>Срочная заявка</button>
   <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="rev" hidden>Выручка</button>
   <button type="button" class="seg-btn" data-tab="pay" hidden>Зарплата</button>
-  <button type="button" class="seg-btn" data-tab="own" hidden>Владельцы</button>
+  <button type="button" class="seg-btn" data-tab="own" hidden>Затраты</button>
 </div>
 
 <main id="form">
@@ -423,11 +449,11 @@
 </div>
 <div class="card">
   <h3>Морсы и лимонады</h3>
-  <div class="note" style="font-size:12px;margin:0 0 4px">+ 20 ₽ за бутылку тому, кто сделал. Фото обязательно — без него премия не начисляется.</div>
+  <div class="note" style="font-size:12px;margin:0 0 4px">+ 20 ₽ за бутылку тому, кто сделал.</div>
   <div id="drinks"></div>
-  <button type="button" class="link" id="addDrink">+ Кто сделал</button>
+  <button type="button" class="link" id="addDrink">+ Ещё кто сделал</button>
   <div id="drinkPhotoBlock">
-    <div class="ph-head"><b>Фото морсов и лимонадов</b><small id="drinkPhotoNote">Докажите фото: чтобы было видно все бутылки. Обязательно, если указали бутылки</small></div>
+    <div class="ph-head"><b>Фото морсов и лимонадов</b><small id="drinkPhotoNote">Сделайте фото: чтобы было видно все бутылки</small></div>
     <div class="photos" id="drinkPhotos"></div>
     <input type="file" id="drinkPhotoInput" accept="image/*" multiple hidden>
   </div>
@@ -444,7 +470,6 @@
 <div class="card">
   <p class="note today-note" id="orderedTodayNote" hidden></p>
   <div id="chips"></div>
-  <textarea id="orderText" placeholder="Чего нет в кнопках - каждое с новой строки"></textarea>
 </div>
 
 <h2 class="sec">Отзывы гостей</h2>
@@ -511,14 +536,13 @@
 <!-- Срочная заявка -->
 <main id="orderScreen" hidden>
   <header>
-    <h1>Заявка</h1>
+    <h1>Срочная заявка</h1>
     <div class="sub">Сразу попадёт снабженцу, не дожидаясь отчёта</div>
   </header>
   <h2 class="sec">Что нужно</h2>
   <div class="card">
     <p class="note today-note" id="orderedTodayNote2" hidden></p>
     <div id="orderChips"></div>
-    <textarea id="orderNow" placeholder="Чего нет в кнопках - каждое с новой строки"></textarea>
   </div>
   <button id="sendOrderBtn" class="btn" type="button" hidden>Отправить заявку</button>
 </main>
@@ -551,8 +575,8 @@
 <!-- Владельцы: траты на бизнес (только роль «владелец») -->
 <main id="ownerScreen" hidden>
   <header>
-    <h1>Владельцы</h1>
-    <div class="sub">Кто и сколько потратил на бизнес</div>
+    <h1>Затраты</h1>
+    <div class="sub">Кто сколько вложил в бизнес и сколько взял себе</div>
   </header>
   <div id="ownerBody"></div>
 </main>
@@ -598,7 +622,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.3';
+const APP_VERSION = '2026-11-02.4';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -912,11 +936,18 @@ function renderStock(list) {
 /* ---------- кнопки заявки: товары с листа «Товары», по разделам ---------- */
 
 let draftChips = new Set();
+let draftTyped = {};   // { категория: 'вписанное вручную' } — в черновике отчёта
+const OTHER_GROUP = 'Другое';
 
-// Кнопки по разделам. В отчёте нажатое сохраняется в черновик.
+// Категории меняют владелец и управляющий
+function canEditCats() { return shownRole === 'owner'; }
+
+// Кнопки по категориям, под каждой — поле «чего нет в кнопках». В отчёте всё сохраняется в черновик.
 function renderChips(box, inReport) {
   const keep = new Set([...box.querySelectorAll('.chip[aria-pressed="true"]')].map(c => c.dataset.item));
   if (inReport) draftChips.forEach(x => keep.add(x));
+  const typedKeep = Object.assign({}, inReport ? draftTyped : {});
+  box.querySelectorAll('.cat-typed').forEach(t => { if (t.value.trim()) typedKeep[t.dataset.group] = t.value; });
   const openGroups = new Set([...box.querySelectorAll('details[open]')].map(d => d.dataset.group));
   box.textContent = '';
   const groups = [];
@@ -928,7 +959,17 @@ function renderChips(box, inReport) {
   // Нажатое, которого уже нет в списке, не теряем
   const known = new Set((config.catalog || []).map(c => c.name));
   const lost = [...keep].filter(x => !known.has(x));
-  if (lost.length) { byGroup['Другое'] = (byGroup['Другое'] || []).concat(lost); if (!groups.includes('Другое')) groups.push('Другое'); }
+  if (lost.length) byGroup[OTHER_GROUP] = (byGroup[OTHER_GROUP] || []).concat(lost);
+  // «Другое» есть всегда — туда можно вписать то, что ни к чему не подходит
+  if (!groups.includes(OTHER_GROUP)) { groups.push(OTHER_GROUP); byGroup[OTHER_GROUP] = byGroup[OTHER_GROUP] || []; }
+  // Вписанное в категорию, которой больше нет (переименовали) — тоже в «Другое»
+  Object.keys(typedKeep).forEach(g => {
+    if (!groups.includes(g)) {
+      typedKeep[OTHER_GROUP] = [typedKeep[OTHER_GROUP], typedKeep[g]].filter(Boolean).join('\n');
+      delete typedKeep[g];
+    }
+  });
+  const onChange = () => { if (inReport) { draftChips = new Set(pickedChips(box)); draftTyped = typedByGroup(box); saveDraftSoon(); } };
 
   groups.forEach(g => {
     const d = el('details', 'cgroup');
@@ -938,6 +979,12 @@ function renderChips(box, inReport) {
     const cnt = el('b', 'cnt');
     title.appendChild(cnt);
     sum.appendChild(title);
+    if (canEditCats() && g !== OTHER_GROUP) {
+      const ed = el('button', 'cat-edit', '✎');
+      ed.type = 'button'; ed.setAttribute('aria-label', `Изменить категорию «${g}»`);
+      ed.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openCategory(g, groups); });
+      sum.appendChild(ed);
+    }
     const list = el('div', 'chips');
     byGroup[g].forEach(item => {
       const b = el('button', 'chip', item);
@@ -947,25 +994,117 @@ function renderChips(box, inReport) {
         b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
         haptic('select');
         updateCounts(d);
-        if (inReport) { draftChips = new Set(pickedChips(box)); saveDraftSoon(); }
+        onChange();
       });
       list.appendChild(b);
     });
-    d.append(sum, list);
-    if (openGroups.has(g)) d.open = true;
+    const typed = el('textarea', 'cat-typed');
+    typed.dataset.group = g;
+    typed.placeholder = 'Чего нет в кнопках - каждое с новой строки';
+    typed.value = typedKeep[g] || '';
+    typed.addEventListener('input', () => { updateCounts(d); onChange(); });
+    d.append(sum, list, typed);
+    if (openGroups.has(g) || typed.value.trim()) d.open = true;
     box.appendChild(d);
     updateCounts(d);
   });
-  if (!groups.length) box.appendChild(el('p', 'note', 'Список товаров загрузится из таблицы.'));
+  if (groups.length === 1 && !byGroup[OTHER_GROUP].length) box.prepend(el('p', 'note', 'Список товаров загрузится из таблицы.'));
 }
 
+function linesOf(s) { return String(s || '').split('\n').map(x => x.trim()).filter(Boolean); }
+
 function updateCounts(d) {
-  const n = d.querySelectorAll('.chip[aria-pressed="true"]').length;
+  const t = d.querySelector('.cat-typed');
+  const n = d.querySelectorAll('.chip[aria-pressed="true"]').length + (t ? linesOf(t.value).length : 0);
   d.querySelector('.cnt').textContent = n ? String(n) : '';
 }
 
 function pickedChips(box) {
   return [...box.querySelectorAll('.chip[aria-pressed="true"]')].map(c => c.dataset.item);
+}
+
+// { категория: текст } — что вписано вручную
+function typedByGroup(box) {
+  const out = {};
+  box.querySelectorAll('.cat-typed').forEach(t => { if (t.value.trim()) out[t.dataset.group] = t.value; });
+  return out;
+}
+
+// [[товар, категория]] — чтобы новый товар стал кнопкой в своей категории
+function typedPairs(box) {
+  const out = [];
+  box.querySelectorAll('.cat-typed').forEach(t => linesOf(t.value).forEach(x => out.push([x, t.dataset.group])));
+  return out;
+}
+
+function clearChips(box) {
+  box.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
+  box.querySelectorAll('.cat-typed').forEach(t => { t.value = ''; });
+  box.querySelectorAll('details').forEach(updateCounts);
+}
+
+/* --- категории: переименовать или объединить (владелец и управляющий) --- */
+
+function openCategory(g, groups) {
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, g));
+  body.appendChild(el('div', 'grp', 'Категория в заявке и товарном учёте'));
+  const input = el('input', 'full');
+  input.value = g; input.maxLength = 40; input.placeholder = 'Новое название';
+  const save = el('button', 'btn', 'Переименовать');
+  save.type = 'button';
+  save.addEventListener('click', () => {
+    const to = input.value.trim();
+    if (to.length < 2) return alert_('Напишите название категории.');
+    if (to === g) return closeItem();
+    catPost({ action: 'catRename', from: g, to });
+  });
+  body.append(input, save);
+  const others = groups.filter(x => x !== g && x !== OTHER_GROUP);
+  if (others.length) {
+    body.appendChild(el('h3', null, 'Объединить с другой категорией'));
+    body.appendChild(el('div', 'grp', `Товары из «${g}» перейдут в выбранную категорию.`));
+    const box = el('div', 'merge-list');
+    others.forEach(o => {
+      const b = el('button', 'chip', o);
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        if (!(await confirm_(`Объединить «${g}» с «${o}»? Останется одна категория «${o}».`))) return;
+        catPost({ action: 'catRename', from: g, to: o });
+      });
+      box.appendChild(b);
+    });
+    body.appendChild(box);
+  }
+  const reset = el('button', 'btn btn-light', 'Вернуть все категории как было');
+  reset.type = 'button';
+  reset.addEventListener('click', async () => {
+    if (!(await confirm_('Вернуть все категории к начальным названиям?'))) return;
+    catPost({ action: 'catReset' });
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(reset, close);
+  $('itemSheet').hidden = false;
+}
+
+async function catPost(body) {
+  if (busy) return;
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  setBusy(true);
+  try {
+    const data = await api(body);
+    closeItem();
+    applyConfig(Object.assign({}, config, data.config));
+    renderChips($('orderChips'), false);
+    haptic('success');
+  } catch (e) {
+    await alert_('Не получилось: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
 }
 
 /* ---------- построение формы ---------- */
@@ -982,7 +1121,7 @@ function moneyRow(parent, key, label, hintId) {
 }
 
 function build() {
-  ['date', 'senior', 'reviews', 'gis2', 'checks', 'staffFeedback', 'orderText'].forEach(k => { fields[k] = $(k); });
+  ['date', 'senior', 'reviews', 'gis2', 'checks', 'staffFeedback'].forEach(k => { fields[k] = $(k); });
 
   moneyRow($('moneyRows'), 'card', 'Безнал');
   moneyRow($('moneyRows'), 'cash', 'Наличные');
@@ -1066,7 +1205,8 @@ function collect() {
     name: r.querySelector('.exp-name').value.trim(),
     sum: num(r.querySelector('.exp-sum').value),
   })).filter(e => e.name || e.sum != null);
-  const orderTyped = v('orderText').split('\n').map(s => s.trim()).filter(Boolean);
+  const typedGroups = typedPairs($('chips'));
+  const orderTyped = typedGroups.map(p => p[0]);
   const order = pickedChips($('chips')).concat(orderTyped);
 
   const r = {
@@ -1080,7 +1220,7 @@ function collect() {
     gis2: num(v('gis2')),
     checks: num(v('checks')),
     drinks: collectDrinks(),
-    orderTyped,
+    orderTyped, typedGroups,
     card: num(v('card')), cash: num(v('cash')), qr: num(v('qr')), incass: num(v('incass')),
     refundCash: num(v('refundCash')), refundCard: num(v('refundCard')),
     cashStart: num(v('cashStart')), cashEnd: num(v('cashEnd')),
@@ -1131,6 +1271,7 @@ function saveDraft() {
     expenses: [...document.querySelectorAll('.exp')].map(r => ({
       name: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
     chips: pickedChips($('chips')),
+    typed: typedByGroup($('chips')),
   };
   for (const k in fields) d.fields[k] = fields[k].value;
   stockEls.forEach(s => { d.stock[s.name] = s.el.value; });
@@ -1152,6 +1293,7 @@ function restoreDraft() {
   stockEls.forEach(s => { const v = d.stock ? byName(d.stock, s.name) : null; if (v != null) s.el.value = v; });
   (d.expenses || []).forEach(e => addExpense(e.name, e.sum));
   draftChips = new Set(d.chips || []);
+  draftTyped = d.typed || {};
   renderChips($('chips'), true);
   return staffRows.length > 0;
 }
@@ -1353,6 +1495,7 @@ function showApp(data, fresh) {
   if (data.vote) { voteData = data.vote; renderVote(); }
   if (firstShow || shownBoss !== !!data.boss) { setupTabs(data.role, !!data.boss); shownBoss = !!data.boss; }
   shownRole = data.role;
+  if (firstShow && data.role === 'owner') renderChips($('chips'), true);   // кнопка ✎ у категорий
   if (fresh) $('verNote').textContent = `Версия приложения ${APP_VERSION} · сервера ${data.ver || 'старая'}`;
   // Выручку и зарплату — заранее, в фоне: к открытию вкладки цифры уже готовы
   if (fresh && data.role === 'owner' && !revLoaded) preloadRevenue();
@@ -1441,16 +1584,15 @@ function setOrderedToday(list) {
 async function submitOrder() {
   if (busy) return;
   const picked = pickedChips($('orderChips'));
-  const typed = $('orderNow').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const typedGroups = typedPairs($('orderChips'));
+  const typed = typedGroups.map(p => p[0]);
   const items = picked.concat(typed);
   if (!items.length) return alert_('Отметьте кнопки или впишите, что нужно.');
   if (!inTg || !apiReady) return alert_('Откройте форму через бота в Телеграме.');
   setBusy(true);
   try {
-    const data = await api({ action: 'order', items, typed });
-    $('orderChips').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
-    $('orderChips').querySelectorAll('details').forEach(updateCounts);
-    $('orderNow').value = '';
+    const data = await api({ action: 'order', items, typed, typedGroups });
+    clearChips($('orderChips'));
     setOrderedToday(data.orderedToday);
     haptic('success');
     await alert_(data.sent ? 'Заявка отправлена снабженцу ✅' : 'Заявка добавлена в список закупки ✅');
@@ -1537,11 +1679,41 @@ function openLink(url) {
 
 function closeItem() { $('itemSheet').hidden = true; }
 
-// Карточка магазина: адрес, часы, телефон, 2ГИС
-function storeCard(s) {
+// Карточка магазина: адрес (можно вписать прямо здесь), часы, телефон, 2ГИС.
+// reopen — что открыть заново после сохранения; onRemove — убрать магазин у товара.
+function storeCard(s, reopen, onRemove) {
   const card = el('div', 'store');
-  card.appendChild(el('b', null, '🏪 ' + s.name));
-  card.appendChild(el('div', s.address ? '' : 'muted', s.address ? '📍 ' + s.address : 'Адрес не указан — лист «Магазины»'));
+  const head = el('div', 'st-head');
+  head.appendChild(el('b', null, s.name));
+  if (onRemove) {
+    const x = el('button', 'x', '×');
+    x.type = 'button'; x.setAttribute('aria-label', `Убрать магазин ${s.name} у товара`);
+    x.addEventListener('click', onRemove);
+    head.appendChild(x);
+  }
+  card.appendChild(head);
+  const addrRow = el('div', 'addr-row');
+  const addrInput = el('input');
+  addrInput.placeholder = 'Впишите адрес магазина'; addrInput.maxLength = 200; addrInput.value = s.address || '';
+  const addrSave = el('button', 'btn', 'Сохранить');
+  addrSave.type = 'button';
+  addrSave.addEventListener('click', async () => {
+    const address = addrInput.value.trim();
+    if (address.length < 3) return alert_('Напишите адрес.');
+    await purchaseOp({ op: 'storeAddress', store: s.name, address });
+    if (reopen) reopen();
+  });
+  addrRow.append(addrInput, addrSave);
+  if (s.address) {
+    const line = el('div', null, '📍 ' + s.address + ' ');
+    const ed = el('button', 'link', 'изменить');
+    ed.type = 'button'; ed.style.padding = '0';
+    ed.addEventListener('click', () => { line.replaceWith(addrRow); addrInput.focus(); });
+    line.appendChild(ed);
+    card.appendChild(line);
+  } else {
+    card.appendChild(addrRow);
+  }
   if (s.hours) card.appendChild(el('div', null, '🕘 ' + s.hours));
   if (s.phone) {
     const d = el('div', null, '📞 ');
@@ -1562,7 +1734,7 @@ function openStore(s) {
   haptic('light');
   const body = $('itemSheetBody');
   body.textContent = '';
-  body.appendChild(storeCard(s));
+  body.appendChild(storeCard(s, () => openStore(storeInfo(s.name))));
   const close = el('button', 'btn btn-light', 'Закрыть');
   close.type = 'button';
   close.addEventListener('click', closeItem);
@@ -1585,12 +1757,32 @@ function openItem(x) {
   body.appendChild(el('h2', null, x.name));
   body.appendChild(el('div', 'grp', [x.group, x.source].filter(Boolean).join(' · ')));
   const list = x.stores || [];
-  if (!list.length) {
-    const s = el('div', 'store');
-    s.appendChild(el('div', 'muted', 'Магазин не указан. Его можно вписать на листе «Товары», столбец «Магазин».'));
-    body.appendChild(s);
+  // После сохранения товар в списке обновился — открываем его карточку заново
+  const reopen = () => { const y = purchase.find(i => i.name === x.name); if (y) openItem(y); };
+  if (!list.length) body.appendChild(el('div', 'note', 'Магазин не указан — выберите ниже.'));
+  list.forEach(name => body.appendChild(storeCard(storeInfo(name), reopen, async () => {
+    if (!(await confirm_(`Убрать магазин «${name}» у товара «${x.name}»?`))) return;
+    await purchaseOp({ op: 'itemStoreDel', name: x.name, store: name });
+    reopen();
+  })));
+  // Товар бывает в нескольких магазинах — можно добавить ещё один
+  const free = stores.filter(s => !list.includes(s.name));
+  if (free.length) {
+    const row = el('div', 'store-add');
+    const sel = el('select');
+    sel.setAttribute('aria-label', 'Магазин');
+    sel.add(new Option(list.length ? '+ Ещё магазин' : 'Выбрать магазин', ''));
+    free.forEach(s => sel.add(new Option(s.name, s.name)));
+    const add = el('button', 'btn', 'Добавить');
+    add.type = 'button';
+    add.addEventListener('click', async () => {
+      if (!sel.value) return alert_('Выберите магазин.');
+      await purchaseOp({ op: 'itemStore', name: x.name, store: sel.value });
+      reopen();
+    });
+    row.append(sel, add);
+    body.appendChild(row);
   }
-  list.forEach(name => body.appendChild(storeCard(storeInfo(name))));
   const main = el('button', 'btn', x.bought ? 'Вернуть в «Нужно купить»' : '✓ Куплено');
   main.type = 'button';
   main.addEventListener('click', () => { closeItem(); x.bought ? returnItem(x) : markBought(x); });
@@ -2314,6 +2506,11 @@ function renderPay(d) {
       if (isMonth) small = `выплата ${u.payday}-го числа` + (u.paid ? ` · выдано ${fmt(u.paid)}` : '');
       if (u.key.startsWith('неделя:')) small += ` · ${u.shifts.length} ${pl(u.shifts.length, 'смена', 'смены', 'смен')}`;
       if (small) info.appendChild(el('small', null, small));
+      // Когда выдавали: аванс 20 000 — 02.11.2026
+      if (isMonth) (u.log || []).forEach(p => {
+        const kind = /^аванс/.test(p.label) ? 'аванс' : /остаток/.test(p.label) ? 'остаток' : 'выдано';
+        info.appendChild(el('small', null, `${kind} ${fmt(p.sum)} ₽ — ${p.date}`));
+      });
 
       const act = el('div', 'pay-act');
       if (u.due > 0) {
@@ -2508,52 +2705,80 @@ async function ownerPost(body, confirmText) {
   }
 }
 
+let ownerEdit = null;   // запись, которую сейчас правим: { id, who, title, sum }
+
+// Плюс — потратил на бизнес, минус — взял себе (личная покупка, личный счёт)
 function renderOwner() {
   const d = ownerData;
-  const money = n => fmt(n) + ' ₽';
+  const money = n => (n < 0 ? '−' : '') + fmt(Math.abs(n)) + ' ₽';
   const out = [];
 
   const top = el('div', 'card');
-  top.append(el('div', 'note', 'Общая сумма затрат'), el('div', 'big', money(d.total)));
-  d.per.forEach(p => top.appendChild(kv(p.name, money(p.total))));
+  top.append(el('div', 'note', 'Итого: на бизнес минус взятое себе'), el('div', 'big', money(d.total)));
+  d.per.forEach(p => top.appendChild(kv(p.name, money(p.total), `на бизнес ${fmt(p.plus || 0)} · себе ${fmt(p.minus || 0)}`)));
   out.push(top);
 
-  out.push(el('h2', 'sec', 'Добавить затрату'));
+  const ed = ownerEdit;
+  out.push(el('h2', 'sec', ed ? 'Изменить запись' : 'Добавить затрату'));
   const add = el('div', 'card own-add');
+  let sign = ed && ed.sum < 0 ? -1 : 1;
+  const seg = el('div', 'sign-seg');
+  const plus = el('button', 'plus', '+ На бизнес');
+  const minus = el('button', 'minus', '− Себе (личное)');
+  [plus, minus].forEach(b => { b.type = 'button'; });
+  const mark = () => { plus.setAttribute('aria-pressed', sign > 0 ? 'true' : 'false'); minus.setAttribute('aria-pressed', sign < 0 ? 'true' : 'false'); };
+  plus.addEventListener('click', () => { sign = 1; mark(); haptic('select'); });
+  minus.addEventListener('click', () => { sign = -1; mark(); haptic('select'); });
+  mark();
+  seg.append(plus, minus);
   const who = el('select');
-  who.setAttribute('aria-label', 'Кто потратил');
+  who.setAttribute('aria-label', 'Кто');
   d.owners.forEach(n => who.add(new Option(n, n)));
   const myName = storage(ls => ls.getItem(ME_KEY)) || '';
-  const mine = d.owners.find(n => n === ownerWho) || d.owners.find(n => myName && (n === myName || n.startsWith(myName) || myName.startsWith(n)));
+  const mine = (ed && d.owners.find(n => n === ed.who)) || d.owners.find(n => n === ownerWho) ||
+    d.owners.find(n => myName && (n === myName || n.startsWith(myName) || myName.startsWith(n)));
   if (mine) who.value = mine;
-  who.addEventListener('change', () => { ownerWho = who.value; });
+  who.addEventListener('change', () => { if (!ed) ownerWho = who.value; });
   const title = el('input');
-  title.placeholder = 'Название затраты'; title.maxLength = 80; title.autocomplete = 'off';
+  title.placeholder = 'Название (на что)'; title.maxLength = 80; title.autocomplete = 'off';
   const sum = el('input');
   sum.placeholder = 'Сумма, ₽'; sum.inputMode = 'decimal'; sum.autocomplete = 'off';
-  const btn = el('button', 'btn', 'Добавить');
+  if (ed) { title.value = ed.title; sum.value = String(Math.abs(ed.sum)); }
+  const btn = el('button', 'btn', ed ? 'Сохранить изменения' : 'Добавить');
   btn.type = 'button';
   btn.addEventListener('click', async () => {
     const t = title.value.trim(), s = num(sum.value);
-    if (t.length < 2) return alert_('Напишите название затраты.');
-    if (s == null || isNaN(s) || s === 0) return alert_('Напишите сумму числом.');
-    ownerWho = who.value;
-    await ownerPost({ action: 'ownerAdd', who: who.value, title: t, sum: s });
+    if (t.length < 2) return alert_('Напишите название.');
+    if (s == null || isNaN(s) || s <= 0) return alert_('Напишите сумму числом.');
+    const body = { action: ed ? 'ownerEdit' : 'ownerAdd', who: who.value, title: t, sum: sign * s };
+    if (ed) body.id = ed.id; else ownerWho = who.value;
+    if (await ownerPost(body)) { ownerEdit = null; renderOwner(); }
   });
-  add.append(who, title, sum, btn);
+  add.append(seg, who, title, sum, btn);
+  if (ed) {
+    const cancel = el('button', 'btn btn-light', 'Отмена');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => { ownerEdit = null; renderOwner(); });
+    add.appendChild(cancel);
+  }
   out.push(add);
 
   out.push(el('h2', 'sec', 'Все затраты'));
   const list = el('div', 'card');
   if (!d.items.length) list.appendChild(el('div', 'note', 'Пока ничего не записано.'));
+  else list.appendChild(el('div', 'note', 'Нажмите на запись, чтобы изменить сумму или название.'));
   d.items.forEach(it => {
     const row = el('div', 'own-item');
     const main = el('div', 'own-main');
-    main.append(el('div', null, it.title), el('small', null, `${it.date} · ${it.who}`));
+    main.append(el('div', null, it.title), el('small', null, `${it.date} · ${it.who}${it.sum < 0 ? ' · себе' : ''}`));
     const x = el('button', 'x', '×');
     x.type = 'button'; x.setAttribute('aria-label', 'Удалить запись');
-    x.addEventListener('click', () => ownerPost({ action: 'ownerDelete', id: it.id }, `Удалить запись «${it.title}» на ${money(it.sum)}?`));
-    row.append(main, el('div', 'own-sum', money(it.sum)), x);
+    x.addEventListener('click', e => {
+      e.stopPropagation();
+      ownerPost({ action: 'ownerDelete', id: it.id }, `Удалить запись «${it.title}» на ${money(it.sum)}?`);
+    });
+    row.addEventListener('click', () => { ownerEdit = it; renderOwner(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    row.append(main, el('div', 'own-sum' + (it.sum < 0 ? ' neg' : ''), money(it.sum)), x);
     list.appendChild(row);
   });
   out.push(list);
@@ -2602,6 +2827,7 @@ function startEdit(ed) {
 
   $('drinks').textContent = '';
   (r.drinks || []).forEach(x => addDrink(x.name, x.count));
+  if (!(r.drinks || []).length) addDrink();
 
   $('expenses').textContent = '';
   (r.expenses || []).forEach(e => addExpense(e.name, e.sum == null ? '' : e.sum));
@@ -2618,9 +2844,9 @@ function startEdit(ed) {
     const hit = (config.catalog || []).find(c => c.name.toLowerCase() === String(item).toLowerCase());
     if (hit && known.has(hit.name.toLowerCase())) draftChips.add(hit.name); else typed.push(item);
   });
+  draftTyped = typed.length ? { [OTHER_GROUP]: typed.join('\n') } : {};
   $('chips').textContent = '';
   renderChips($('chips'), true);
-  put('orderText', typed.join('\n'));
 
   checkPhotos.clear();
   drinkPhotos.clear();
@@ -2768,6 +2994,7 @@ if (!restored) {
   const me = storage(ls => ls.getItem(ME_KEY));
   if (me) applyMyName(me);
 }
+if (!document.querySelector('#drinks .drink')) addDrink();   // строка морсов видна сразу, как поле 2ГИС
 fields.senior.addEventListener('change', () => { recalc(); saveDraftSoon(); });
 
 document.addEventListener('input', e => { if (!e.target.closest('#payBody, #buyer')) { recalc(); saveDraftSoon(); } });
