@@ -171,6 +171,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .btn-light { background: var(--field); color: var(--accent); text-align: center; margin: 8px 0 4px; }
+  .btn-light.btn-del { color: #d32f2f; }
 
   /* Фото — плитки */
   .ph-head { margin: 2px 0 8px; }
@@ -762,7 +763,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.19';
+const APP_VERSION = '2026-11-02.20';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -2024,7 +2025,7 @@ function renderStockView(sv) {
     const row = el('div', 'srow' + (low ? ' low' : ''));
     const span = el('span', null, `${x.name} / ${x.unit}`);
     if (low) span.appendChild(el('small', null, `мало — минимум ${x.min}`));
-    const add = toolBtn('+', 'Добавить в список закупки', false, () => addItem(x.name));
+    const add = toolBtn('+', 'Добавить в список закупки', false, () => askStockQty(x));
     add.classList.add('add-tool');
     const val = el('b', 'sval', x.value == null ? '—' : String(x.value));
     if (x.value == null) val.appendChild(el('small', null, 'не считали'));
@@ -2216,6 +2217,12 @@ function openItem(x) {
     main.addEventListener('click', () => { closeItem(); x.bought ? returnItem(x) : markBought(x); });
     body.appendChild(main);
   }
+  if (x.id !== 'new') {
+    const del = el('button', 'btn btn-light btn-del', 'Удалить');
+    del.type = 'button';
+    del.addEventListener('click', () => deleteItem(x));
+    body.appendChild(del);
+  }
   const close = el('button', 'btn btn-light', 'Закрыть');
   close.type = 'button';
   close.addEventListener('click', closeItem);
@@ -2361,21 +2368,74 @@ function returnItem(x) {
   purchaseOp({ op: 'need', id: x.id }, () => { x.bought = true; purchase = before; });
 }
 
-function addItem(fromStock) {
+// qty — «5 кг» из окна «Сколько?» (товарный учёт); у вписанного вручную количество сервер берёт из текста
+function addItem(fromStock, qty) {
   const input = $('newItem');
   const typed = typeof fromStock !== 'string';
   const name = (typed ? input.value : fromStock).trim();
   if (name.length < 2) return alert_('Напишите название товара.');
   const same = purchase.find(i => i.name.toLowerCase() === name.toLowerCase());
-  if (same && !same.bought) { if (typed) input.value = ''; return alert_(`«${same.name}» уже есть в списке.`); }
+  // Товар уже в списке: из учёта с количеством — допишем количество («5 кг + 3 кг»), иначе — подсказка
+  if (same && !same.bought && !qty) { if (typed) input.value = ''; return alert_(`«${same.name}» уже есть в списке.`); }
   if (!typed) haptic('success');
   const before = purchase.slice();
-  if (same) moveItem(same, false);
-  else purchase.push({ id: 'new', name, bought: false, sec: 'other', ord: 1e9, stores: [], who: curWho || '' });
+  const wasQty = same ? same.qty : '';
+  const wasBought = same ? same.bought : false;
+  if (same) {
+    if (wasBought) moveItem(same, false);
+    if (qty) same.qty = same.qty && !wasBought ? same.qty + ' + ' + qty : qty;
+    else if (wasBought) same.qty = '';
+  } else purchase.push({ id: 'new', name, qty: qty || '', bought: false, sec: 'other', ord: 1e9, stores: [], who: curWho || '' });
   if (typed) input.value = '';
   renderPurchase();
   // Добавили, глядя на свой список, — товар сразу в этот список
-  purchaseOp({ op: 'add', name, who: curWho || '' }, () => { if (same) same.bought = true; purchase = before; });
+  purchaseOp({ op: 'add', name, qty: qty || '', who: curWho || '' },
+    () => { if (same) { same.qty = wasQty; same.bought = wasBought; } purchase = before; });
+}
+
+// «+» в товарном учёте — сначала спросим, сколько нужно (как в заявке; можно не указывать)
+function askStockQty(x) {
+  haptic('light');
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, x.name));
+  body.appendChild(el('div', 'grp', x.value == null ? 'Остаток не считали' : `Остаток: ${x.value} ${x.unit || ''}`.trim()));
+  const row = el('div', 'qty-row');
+  const n = el('input');
+  n.inputMode = 'decimal'; n.autocomplete = 'off'; n.maxLength = 7; n.placeholder = 'сколько';
+  n.setAttribute('aria-label', `Сколько: ${x.name}`);
+  n.addEventListener('input', () => { n.value = n.value.replace(/[^\d.,]/g, ''); });
+  const u = el('select');
+  u.setAttribute('aria-label', `Единица: ${x.name}`);
+  const unit = String(x.unit || 'шт').trim().toLowerCase() || 'шт';
+  QTY_UNITS.concat(QTY_UNITS.includes(unit) ? [] : [unit]).forEach(v => u.add(new Option(v, v)));
+  u.value = unit;
+  row.append(el('span', null, 'Сколько нужно'), n, u);
+  body.appendChild(row);
+  body.appendChild(el('div', 'note', 'Можно не указывать.'));
+  const ok = el('button', 'btn', 'Добавить в список');
+  ok.type = 'button';
+  ok.addEventListener('click', () => {
+    closeItem();
+    addItem(x.name, n.value ? n.value + ' ' + u.value : '');
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(ok, close);
+  $('itemSheet').hidden = false;
+  setTimeout(() => n.focus(), 50);
+}
+
+// «Удалить» в карточке товара — убрать товар из списка закупки совсем
+async function deleteItem(x) {
+  if (!(await confirm_(`Удалить «${x.name}» из списка закупки?`))) return;
+  closeItem();
+  haptic('light');
+  const before = purchase.slice();
+  purchase = purchase.filter(i => i !== x);
+  renderPurchase();
+  purchaseOp({ op: 'del', id: x.id }, () => { purchase = before; });
 }
 
 async function clearBought() {
