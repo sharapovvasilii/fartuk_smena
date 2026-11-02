@@ -48,7 +48,7 @@
 
   /* Заголовки разделов — над карточками */
   .sec { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; margin: 18px 12px 8px; }
-  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note { padding: 0 12px; }
+  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note, #staffBody > .note { padding: 0 12px; }
   .card { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   h3 { font-size: 15px; font-weight: 700; margin: 8px 0 2px; }
   .lbl { margin: 8px 0 2px; }
@@ -298,8 +298,7 @@
   .staff-row:last-child { border-bottom: none; }
   .staff-row select { width: 52%; flex: none; }
   .staff-row select.empty { color: var(--hint); border-color: var(--accent); }
-  .vote-prize .prize-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-  .vote-prize p { margin: 6px 0 0; font-size: 14px; line-height: 1.4; }
+  .vote-prize p { margin: 6px 0; font-size: 14px; line-height: 1.4; }
   .scale-row { padding: 6px 0; }
   .scale-top { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
   .scale-top b { font-weight: 700; }
@@ -782,7 +781,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.25';
+const APP_VERSION = '2026-11-02.26';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -3139,8 +3138,7 @@ function renderVote() {
   // Карточка про премию — видят все
   const prize = el('div', 'card vote-prize');
   prize.append(
-    el('div', 'prize-title', '🏆 Лучший сотрудник месяца — 10 000 ₽'),
-    el('p', null, 'Каждый месяц один сотрудник получает премию 10 000 ₽. Победителя выбирает управляющий.'),
+    el('p', null, 'Каждый месяц один сотрудник получает премию 10 000 ₽. Победителя выбирает управляющий.'),
     el('p', null, 'Итоги голосования также учитываются и могут повлиять на выбор кандидата на премию.'),
     el('p', null, 'Старайтесь голосовать после каждой смены. Так вы поддержите коллег, которые стараются. Чем больше голосов, тем заметнее хорошая работа!')
   );
