@@ -37,7 +37,8 @@
     padding: 14px 14px 100px;
     -webkit-tap-highlight-color: transparent;
   }
-  header { padding: 2px 2px 4px; }
+  /* Заголовки и подписи вне карточек — по одной линии с текстом внутри карточек (отступ 12px) */
+  header { padding: 2px 12px 4px; }
   h1 { font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -.01em; }
   .sub { color: var(--hint); font-size: 12px; margin-top: 2px; }
   .banner {
@@ -46,7 +47,8 @@
   }
 
   /* Заголовки разделов — над карточками */
-  .sec { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; margin: 18px 2px 8px; }
+  .sec { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; margin: 18px 12px 8px; }
+  main > .note, main > p.note, #payBody > .note, #revBody > .note { padding: 0 12px; }
   .card { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   h3 { font-size: 15px; font-weight: 700; margin: 8px 0 2px; }
   .lbl { margin: 8px 0 2px; }
@@ -77,10 +79,13 @@
   .status { font-size: 12px; padding: 6px 0 4px; color: var(--hint); }
   .status.ok { color: var(--ok); }
   .status.warn { color: var(--warn); font-weight: 600; }
-  .exp { display: flex; gap: 6px; margin: 6px 0; }
+  /* Строки «поле + поле + ×»: × — над строкой справа, поля доходят до правого края, как у остальных */
+  .exp { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .exp .exp-name { flex: 1; min-width: 0; }
-  .exp .exp-sum { width: 90px; text-align: right; }
+  .exp .exp-sum { width: 96px; text-align: right; }
   .x { background: none; border: 0; color: var(--hint); font-size: 22px; padding: 0 6px; }
+  .exp > .x, .drink > .x { order: -1; flex-basis: 100%; text-align: right; line-height: 1; padding: 0 2px; margin-bottom: -4px; }
+  .staff-top .x { padding: 0 2px 0 6px; }
   .link { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 500; padding: 6px 0; }
 
   /* Сотрудники на смене */
@@ -91,8 +96,8 @@
   .staff-top { justify-content: space-between; }
   .staff-top .s-role {
     flex: none; width: auto; max-width: 75%; text-align: left; text-align-last: left; font-weight: 600;
-    padding: 5px 30px 5px 10px; border-radius: 8px;
-    background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
+    padding: 5px 24px 5px 0; border-radius: 0;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f25c26' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 4px center;
   }
   .staff .s-name { width: 100%; text-align: left; text-align-last: left; margin: 2px 0 4px; }
   /* «Кто» и время — в одной строке */
@@ -127,7 +132,8 @@
   .cgroup .cnt { color: var(--accent); font-weight: 700; margin-left: 6px; }
   .cgroup summary span { flex: 1; }
   .cgroup .cat-typed { min-height: 44px; margin: 0 0 10px; font-size: 14px; }
-  .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 15px; padding: 0 10px; }
+  .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 24px; line-height: 1; padding: 0 12px; }
+  .cgroup summary { align-items: center; }
   .cat-tools { display: flex; justify-content: flex-end; }
   .merge-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
   .merge-list .chip { background: var(--field); color: var(--text); }
@@ -156,7 +162,7 @@
   }
 
   /* Морсы */
-  .drink { display: flex; gap: 6px; margin: 6px 0; align-items: center; }
+  .drink { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; align-items: center; }
   .drink select { flex: 1; min-width: 0; width: auto; text-align: left; text-align-last: left; }
   .drink input { width: 96px; text-align: right; }
 
@@ -276,7 +282,7 @@
   .psec-title.store-link::after { content: ' ›'; }
 
   /* Отделы списка закупки */
-  .drag-hint { font-size: 12px; margin: -4px 2px 8px; }
+  .drag-hint { font-size: 12px; margin: -4px 12px 8px; }
   .psec { background: var(--card); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; }
   .psec.empty { display: none; }
   #sections.dragging .psec.empty, #sections.editing .psec.empty { display: block; }
@@ -622,7 +628,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.4';
+const APP_VERSION = '2026-11-02.5';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -2463,10 +2469,9 @@ function renderPay(d) {
   sum.appendChild(kv('Начислено за период', money(d.total)));
   sum.appendChild(kv('Уже выплачено', money(d.paid)));
   out.push(sum);
-  if (d.best) out.push(renderBest(d));
-
   if (!d.people.length) {
     out.push(el('div', 'loading-note', 'За этот период начислений нет.'));
+    if (d.best) out.push(renderBest(d));
     $('payBody').replaceChildren(...out);
     return;
   }
@@ -2576,6 +2581,8 @@ function renderPay(d) {
     });
     out.push(card);
   });
+  // Сотрудник месяца — в конце списка
+  if (d.best) out.push(renderBest(d));
   out.push(el('p', 'note', 'Зарплата смены выдаётся по понедельникам за прошлую неделю (пн–вс). Нажмите на неделю, чтобы увидеть смены. Отметки «Выплачено» — на листе «Выплаты».'));
   $('payBody').replaceChildren(...out);
 }
