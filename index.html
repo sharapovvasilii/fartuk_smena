@@ -238,6 +238,14 @@
   }
   .seg-btn[aria-pressed="true"] { background: var(--dark); color: #fff; }
   .tabs { margin-bottom: 4px; }
+  /* Список закупки: чей — снабженца, управляющего или не разобрано */
+  .who-seg { grid-template-columns: repeat(var(--n, 2), 1fr); margin-bottom: 10px; }
+  .who-seg .seg-btn { padding: 10px 4px; font-size: 13px; line-height: 1.25; }
+  .who-seg .seg-btn small { display: block; font-size: 12px; opacity: .8; }
+  .who-seg .seg-btn.attn:not([aria-pressed="true"]) { color: var(--err); }
+  .who-assign { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .who-assign .btn { margin: 0; }
+  .who-assign .btn[aria-pressed="true"] { background: var(--dark); color: #fff; }
   .tabs .seg-btn { padding: 11px 4px; font-size: 14px; }
   /* Много вкладок — одна строка, листается вбок */
   .tabs.scroll { display: flex; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -566,20 +574,22 @@
     <div class="sub" id="buyerInfo"></div>
   </header>
 
+  <div class="card seg who-seg" id="whoSeg"></div>
+
   <div id="boughtBlock" hidden>
     <div class="sec-row">
-      <h2 class="sec">Куплено</h2>
+      <h2 class="sec" id="boughtTitle">Куплено</h2>
       <button type="button" class="link" id="clearBought">Очистить</button>
     </div>
     <div class="card"><div class="plist" id="boughtList"></div></div>
   </div>
 
   <div class="sec-row">
-    <h2 class="sec">Нужно купить</h2>
+    <h2 class="sec" id="needTitle">Нужно купить</h2>
     <button type="button" class="link" id="editSections">Изменить отделы</button>
   </div>
   <p class="note drag-hint" id="dragHint">Нажмите на товар — покажу, где его купить. Зажмите, чтобы перетащить в другой отдел</p>
-  <div class="card" id="needEmpty" hidden><p class="note">Всё куплено. Отличная работа!</p></div>
+  <div class="card" id="needEmpty" hidden><p class="note" id="needEmptyText">Всё куплено. Отличная работа!</p></div>
   <div id="sections"></div>
 
   <div class="card add-row" id="addSectionRow" hidden>
@@ -745,7 +755,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.15';
+const APP_VERSION = '2026-11-02.17';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1708,7 +1718,7 @@ function preloadTabs(role, boss) {
   if (boss) loadOwner();
   setTimeout(() => {
     loadRepairs();
-    loadBills();
+    if (role !== 'buyer') loadBills();   // снабженец счета не видит
     if (role === 'owner' || role === 'buyer') loadInv();
   }, 1500);
 }
@@ -1727,6 +1737,7 @@ function loadInitCache() {
 
 function showApp(data, fresh) {
   if (Array.isArray(data.stores)) stores = data.stores;
+  if (curWho === null && data.role) curWho = data.role === 'buyer' ? 'buyer' : 'manager';   // свой список — первым
   if (data.role === 'buyer') {
     // Снабженцу — вкладки «Закупка», «Инвентаризация», «Ремонт»
     if (shownRole !== 'buyer') { curTab = 'buy'; setupTabs('buyer', false); }
@@ -1801,7 +1812,7 @@ let curTab = 'report';
 function setupTabs(role, boss) {
   const show = role === 'owner'
     ? ['report', 'order', 'bills', 'vote', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['own'] : [])
-    : role === 'buyer' ? ['bills', 'buy', 'inv', 'repair']
+    : role === 'buyer' ? ['buy', 'inv', 'repair']
     : ['report', 'order', 'bills', 'vote', 'repair'];
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
@@ -1882,6 +1893,51 @@ let dragging = false;
 let justDragged = false;
 let pendingRender = false;
 let sortables = [];
+
+// Чей список открыт: buyer — снабженец (ездит, покупает), manager — управляющий (заказывает по телефону),
+// '' — «не разобрано» (новые товары, раздаёт управляющий). Свой список открывается первым.
+const WHO = {
+  buyer: { tab: 'Снабженец', need: 'Купить', done: 'Куплено', doneBtn: '✓ Куплено', give: 'Снабженцу',
+    empty: 'Всё куплено. Отличная работа!', info: 'Снабженцу купить',
+    hint: 'Нажмите на товар — покажу, где его купить. Зажмите, чтобы перетащить в другой отдел' },
+  manager: { tab: 'Управляющий', need: 'Заказать', done: 'Заказано', doneBtn: '✓ Заказано', give: 'Управляющему',
+    empty: 'Всё заказано 👍', info: 'Управляющему заказать',
+    hint: 'Нажмите на товар — покажу магазин и телефон. Зажмите, чтобы перетащить в другой отдел' },
+  '': { tab: 'Не разобрано', need: 'Кому отдать', done: 'Куплено', doneBtn: '✓ Куплено',
+    empty: 'Все товары разобраны 👍', info: 'Не разобрано',
+    hint: 'Нажмите на товар и выберите: снабженцу или управляющему. В следующий раз он попадёт туда сам' },
+};
+let curWho = null;
+const myWho = () => shownRole === 'buyer' ? 'buyer' : 'manager';
+const whoOfItem = x => (x.who === 'buyer' || x.who === 'manager') ? x.who : '';
+
+function renderWhoSeg() {
+  if (curWho === null) curWho = myWho();
+  const need = purchase.filter(x => !x.bought);
+  const count = w => need.filter(x => whoOfItem(x) === w).length;
+  const order = myWho() === 'buyer' ? ['buyer', 'manager', ''] : ['manager', 'buyer', ''];
+  // «Не разобрано» видно, только когда там что-то есть (или оно открыто)
+  const show = order.filter(w => w !== '' || count('') || curWho === '');
+  const seg = $('whoSeg');
+  seg.style.setProperty('--n', show.length);
+  seg.replaceChildren(...show.map(w => {
+    const b = el('button', 'seg-btn' + (w === '' ? ' attn' : ''), WHO[w].tab);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', w === curWho ? 'true' : 'false');
+    b.appendChild(el('small', null, count(w) ? String(count(w)) : '—'));
+    b.addEventListener('click', () => { if (curWho !== w) { curWho = w; haptic('select'); renderPurchase(); } });
+    return b;
+  }));
+}
+
+// Управляющий отдаёт товар в список снабженца или себе — запоминается на следующий раз
+function assignItem(x, who) {
+  haptic('light');
+  const was = x.who;
+  x.who = who;
+  renderPurchase();
+  purchaseOp({ op: 'assign', id: x.id, who }, () => { x.who = was; });
+}
 
 function showBuyer(items, secs, stock) {
   $('gate').hidden = true;
@@ -2048,6 +2104,22 @@ function openItem(x) {
   body.textContent = '';
   body.appendChild(el('h2', null, x.name));
   body.appendChild(el('div', 'grp', [x.group, x.source].filter(Boolean).join(' · ')));
+  // Кому: раздают управляющий, владелец и снабженец
+  const w = whoOfItem(x);
+  if (!x.bought && x.id !== 'new') {
+    if (!w) body.appendChild(el('h3', null, 'Кому отдать?'));
+    const row = el('div', 'who-assign');
+    ['buyer', 'manager'].forEach(k => {
+      const b = el('button', 'btn btn-light', WHO[k].give);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', w === k ? 'true' : 'false');
+      b.addEventListener('click', () => { closeItem(); if (w !== k) assignItem(x, k); });
+      row.appendChild(b);
+    });
+    body.appendChild(row);
+  } else if (w) {
+    body.appendChild(el('div', 'note', w === 'buyer' ? '🚗 В списке снабженца' : '📞 В списке управляющего'));
+  }
   const list = x.stores || [];
   // После сохранения товар в списке обновился — открываем его карточку заново
   const reopen = () => { const y = purchase.find(i => i.name === x.name); if (y) openItem(y); };
@@ -2075,13 +2147,17 @@ function openItem(x) {
     row.append(sel, add);
     body.appendChild(row);
   }
-  const main = el('button', 'btn', x.bought ? 'Вернуть в «Нужно купить»' : '✓ Куплено');
-  main.type = 'button';
-  main.addEventListener('click', () => { closeItem(); x.bought ? returnItem(x) : markBought(x); });
+  // У неразобранного товара «Куплено» нет — сначала его отдают кому-то
+  if (x.bought || w) {
+    const main = el('button', 'btn', x.bought ? 'Вернуть в список' : WHO[w].doneBtn);
+    main.type = 'button';
+    main.addEventListener('click', () => { closeItem(); x.bought ? returnItem(x) : markBought(x); });
+    body.appendChild(main);
+  }
   const close = el('button', 'btn btn-light', 'Закрыть');
   close.type = 'button';
   close.addEventListener('click', closeItem);
-  body.append(main, close);
+  body.append(close);
   $('itemSheet').hidden = false;
 }
 
@@ -2096,8 +2172,15 @@ function toolBtn(label, title, disabled, fn) {
 
 function renderPurchase() {
   if (dragging) { pendingRender = true; return; }   // не мешаем перетаскиванию
-  const bought = purchase.filter(x => x.bought);
-  const need = purchase.filter(x => !x.bought);
+  renderWhoSeg();
+  const mine = x => whoOfItem(x) === curWho;
+  const bought = purchase.filter(x => x.bought && mine(x));
+  const need = purchase.filter(x => !x.bought && mine(x));
+  const t = WHO[curWho];
+  $('boughtTitle').textContent = t.done;
+  $('needTitle').textContent = t.need;
+  $('needEmptyText').textContent = t.empty;
+  $('dragHint').textContent = t.hint;
   $('boughtList').replaceChildren(...bought.map(itemButton));
   $('boughtBlock').hidden = !bought.length;
   $('needEmpty').hidden = need.length > 0 || editingSections;
@@ -2105,7 +2188,7 @@ function renderPurchase() {
   $('editSections').textContent = editingSections ? 'Готово' : 'Изменить отделы';
   $('addSectionRow').hidden = !editingSections;
   $('buyerInfo').textContent = need.length
-    ? `Нужно купить: ${need.length} ${pl(need.length, 'позиция', 'позиции', 'позиций')}`
+    ? `${t.info}: ${need.length} ${pl(need.length, 'позиция', 'позиции', 'позиций')}`
     : 'Сейчас ничего не нужно';
 
   const known = new Set(sections.map(s => s.id));
@@ -2226,10 +2309,11 @@ function addItem(fromStock) {
   if (!typed) haptic('success');
   const before = purchase.slice();
   if (same) moveItem(same, false);
-  else purchase.push({ id: 'new', name, bought: false, sec: 'other', ord: 1e9, stores: [] });
+  else purchase.push({ id: 'new', name, bought: false, sec: 'other', ord: 1e9, stores: [], who: curWho || '' });
   if (typed) input.value = '';
   renderPurchase();
-  purchaseOp({ op: 'add', name }, () => { if (same) same.bought = true; purchase = before; });
+  // Добавили, глядя на свой список, — товар сразу в этот список
+  purchaseOp({ op: 'add', name, who: curWho || '' }, () => { if (same) same.bought = true; purchase = before; });
 }
 
 async function clearBought() {
