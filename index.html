@@ -138,6 +138,13 @@
   .cgroup .cnt { color: var(--accent); font-weight: 700; margin-left: 6px; }
   .cgroup summary span { flex: 1; }
   .cgroup .cat-typed { min-height: 44px; margin: 0 0 10px; font-size: 14px; }
+  /* Сколько нужно — под нажатыми кнопками (можно не писать) */
+  .qty-list { margin: 0 0 8px; }
+  .qty-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .qty-row > span { flex: 1; min-width: 0; font-size: 14px; }
+  .qty-row input { width: 76px; flex: none; text-align: center; font-size: 14px; padding: 7px 6px; }
+  .qty-row select { width: 78px; flex: none; font-size: 14px; padding: 7px 6px; text-align: center; text-align-last: center; }
+  .pitem small { font-weight: 400; opacity: .85; margin-left: 4px; }
   /* Смахнуть кнопку вбок — удалить (владелец и управляющий) */
   .chip.swipe { touch-action: pan-y; transition: background .15s; user-select: none; -webkit-user-select: none;
     -webkit-touch-callout: none; }
@@ -755,7 +762,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-02.18';
+const APP_VERSION = '2026-11-02.19';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1085,6 +1092,7 @@ function renderStock(list) {
 
 let draftChips = new Set();
 let draftTyped = {};   // { категория: 'вписанное вручную' } — в черновике отчёта
+let draftQty = {};     // { товар: { n: '5', u: 'кг' } } — сколько нужно (можно не писать)
 const OTHER_GROUP = 'Другое';
 
 // Категории меняют владелец и управляющий
@@ -1097,6 +1105,7 @@ function renderChips(box, inReport) {
   const typedKeep = Object.assign({}, inReport ? draftTyped : {});
   box.querySelectorAll('.cat-typed').forEach(t => { if (t.value.trim()) typedKeep[t.dataset.group] = t.value; });
   const openGroups = new Set([...box.querySelectorAll('details[open]')].map(d => d.dataset.group));
+  box._qty = Object.assign({}, inReport ? draftQty : {}, box._qty || {});
   box.textContent = '';
   const groups = [];
   const byGroup = {};
@@ -1117,7 +1126,9 @@ function renderChips(box, inReport) {
       delete typedKeep[g];
     }
   });
-  const onChange = () => { if (inReport) { draftChips = new Set(pickedChips(box)); draftTyped = typedByGroup(box); saveDraftSoon(); } };
+  const onChange = () => {
+    if (inReport) { draftChips = new Set(pickedChips(box)); draftTyped = typedByGroup(box); draftQty = box._qty; saveDraftSoon(); }
+  };
 
   groups.forEach(g => {
     const d = el('details', 'cgroup');
@@ -1134,6 +1145,8 @@ function renderChips(box, inReport) {
       sum.appendChild(ed);
     }
     const list = el('div', 'chips');
+    const qtyBox = el('div', 'qty-list');
+    const showQty = () => renderQtyRows(box, list, qtyBox, onChange);
     byGroup[g].forEach(item => {
       const b = el('button', 'chip', item);
       b.type = 'button'; b.dataset.item = item;
@@ -1143,6 +1156,7 @@ function renderChips(box, inReport) {
         b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
         haptic('select');
         updateCounts(d);
+        showQty();
         onChange();
       });
       if (canEditCats()) enableSwipeDelete(b, item);
@@ -1150,10 +1164,11 @@ function renderChips(box, inReport) {
     });
     const typed = el('textarea', 'cat-typed');
     typed.dataset.group = g;
-    typed.placeholder = 'Чего нет в кнопках - каждое с новой строки';
+    typed.placeholder = 'Чего нет в кнопках: «Халапеньо 2 банки»';
     typed.value = typedKeep[g] || '';
     typed.addEventListener('input', () => { updateCounts(d); onChange(); });
-    d.append(sum, list, typed);
+    d.append(sum, list, qtyBox, typed);
+    showQty();
     if (openGroups.has(g) || typed.value.trim()) d.open = true;
     box.appendChild(d);
     updateCounts(d);
@@ -1261,6 +1276,44 @@ function pickedChips(box) {
   return [...box.querySelectorAll('.chip[aria-pressed="true"]')].map(c => c.dataset.item);
 }
 
+// Под нажатыми кнопками категории — «сколько» и единица. Пусто — значит количество не указали.
+const QTY_UNITS = ['шт', 'кг', 'г', 'л', 'кор', 'уп', 'пачка', 'банка', 'бут', 'ведро', 'мешок', 'ящ'];
+function renderQtyRows(box, list, qtyBox, onChange) {
+  const q = box._qty = box._qty || {};
+  const rows = [...list.querySelectorAll('.chip[aria-pressed="true"]')].map(c => {
+    const item = c.dataset.item;
+    const cat = (config.catalog || []).find(x => x.name === item);
+    const cur = q[item] || { n: '', u: (cat && cat.unit) || 'шт' };
+    const row = el('div', 'qty-row');
+    const n = el('input');
+    n.inputMode = 'decimal'; n.autocomplete = 'off'; n.maxLength = 7; n.placeholder = 'сколько';
+    n.setAttribute('aria-label', `Сколько: ${item}`);
+    n.value = cur.n;
+    const u = el('select');
+    u.setAttribute('aria-label', `Единица: ${item}`);
+    QTY_UNITS.concat(QTY_UNITS.includes(cur.u) ? [] : [cur.u]).forEach(x => u.add(new Option(x, x)));
+    u.value = cur.u;
+    const save = () => {
+      n.value = n.value.replace(/[^\d.,]/g, '');
+      if (n.value) q[item] = { n: n.value, u: u.value }; else delete q[item];
+      onChange();
+    };
+    n.addEventListener('input', save);
+    u.addEventListener('change', save);
+    row.append(el('span', null, item), n, u);
+    return row;
+  });
+  qtyBox.replaceChildren(...rows);
+}
+
+// { товар: '5 кг' } — только у нажатых кнопок, где написали количество
+function pickedQty(box) {
+  const q = box._qty || {};
+  const out = {};
+  pickedChips(box).forEach(item => { if (q[item] && q[item].n) out[item] = q[item].n + ' ' + q[item].u; });
+  return out;
+}
+
 // { категория: текст } — что вписано вручную
 function typedByGroup(box) {
   const out = {};
@@ -1276,6 +1329,8 @@ function typedPairs(box) {
 }
 
 function clearChips(box) {
+  box._qty = {};
+  box.querySelectorAll('.qty-list').forEach(q => { q.textContent = ''; });
   box.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
   box.querySelectorAll('.cat-typed').forEach(t => { t.value = ''; });
   box.querySelectorAll('details').forEach(updateCounts);
@@ -1465,6 +1520,7 @@ function collect() {
     expenses,
     stock: stockEls.map(s => ({ group: s.group, name: s.name, unit: s.unit, value: num(s.el.value) })),
     order,
+    orderQty: pickedQty($('chips')),   // сколько нужно — у кнопок; у вписанного вручную сервер отделит сам
   };
   const z = x => (x == null || isNaN(x)) ? 0 : x;
   r.revenue = z(r.card) + z(r.cash) + z(r.qr);
@@ -1510,6 +1566,7 @@ function saveDraft() {
       name: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
     chips: pickedChips($('chips')),
     typed: typedByGroup($('chips')),
+    qty: $('chips')._qty || {},
   };
   for (const k in fields) d.fields[k] = fields[k].value;
   stockEls.forEach(s => { d.stock[s.name] = s.el.value; });
@@ -1532,6 +1589,7 @@ function restoreDraft() {
   (d.expenses || []).forEach(e => addExpense(e.name, e.sum));
   draftChips = new Set(d.chips || []);
   draftTyped = d.typed || {};
+  draftQty = d.qty || {};
   renderChips($('chips'), true);
   return staffRows.length > 0;
 }
@@ -1737,6 +1795,7 @@ function loadInitCache() {
 
 function showApp(data, fresh) {
   if (Array.isArray(data.stores)) stores = data.stores;
+  if (data.role) whoRole = data.role;
   if (curWho === null && data.role) curWho = data.role === 'buyer' ? 'buyer' : 'manager';   // свой список — первым
   if (data.role === 'buyer') {
     // Снабженцу — вкладки «Закупка», «Инвентаризация», «Ремонт»
@@ -1871,7 +1930,7 @@ async function submitOrder() {
   if (!inTg || !apiReady) return alert_('Откройте форму через бота в Телеграме.');
   setBusy(true);
   try {
-    const data = await api({ action: 'order', items, typed, typedGroups });
+    const data = await api({ action: 'order', items, typed, typedGroups, qty: pickedQty($('orderChips')) });
     clearChips($('orderChips'));
     setOrderedToday(data.orderedToday);
     haptic('success');
@@ -1908,7 +1967,8 @@ const WHO = {
     hint: 'Нажмите на товар и выберите: снабженцу или управляющему. В следующий раз он попадёт туда сам' },
 };
 let curWho = null;
-const myWho = () => shownRole === 'buyer' ? 'buyer' : 'manager';
+let whoRole = null;   // роль из ответа сервера — известна раньше, чем shownRole
+const myWho = () => (whoRole || shownRole) === 'buyer' ? 'buyer' : 'manager';
 const whoOfItem = x => (x.who === 'buyer' || x.who === 'manager') ? x.who : '';
 
 function renderWhoSeg() {
@@ -1976,6 +2036,7 @@ function renderStockView(sv) {
 
 function itemButton(x) {
   const b = el('button', 'pitem' + (x.bought ? ' done' : ''), x.name);
+  if (x.qty) b.appendChild(el('small', null, '· ' + x.qty));
   b.type = 'button';
   b.dataset.name = x.name;
   if (x.source) b.title = x.source;
@@ -2104,6 +2165,7 @@ function openItem(x) {
   body.textContent = '';
   body.appendChild(el('h2', null, x.name));
   body.appendChild(el('div', 'grp', [x.group, x.source].filter(Boolean).join(' · ')));
+  if (x.qty) body.appendChild(el('div', 'repair-text', '📦 Сколько: ' + x.qty));
   // Кому: раздают управляющий, владелец и снабженец
   const w = whoOfItem(x);
   if (!x.bought && x.id !== 'new') {
@@ -3738,13 +3800,21 @@ function startEdit(ed) {
 
   const known = new Set((config.catalog || []).map(c => c.name.toLowerCase()));
   draftChips = new Set();
+  draftQty = {};
   const typed = [];
+  const oq = r.orderQty || {};
   (r.order || []).forEach(item => {
     const hit = (config.catalog || []).find(c => c.name.toLowerCase() === String(item).toLowerCase());
-    if (hit && known.has(hit.name.toLowerCase())) draftChips.add(hit.name); else typed.push(item);
+    const qty = oq[item] || '';
+    if (hit && known.has(hit.name.toLowerCase())) {
+      draftChips.add(hit.name);
+      const m = /^(\S+)\s*(.*)$/.exec(qty);
+      if (m) draftQty[hit.name] = { n: m[1], u: m[2] || hit.unit || 'шт' };
+    } else typed.push(qty ? item + ' ' + qty : item);
   });
   draftTyped = typed.length ? { [OTHER_GROUP]: typed.join('\n') } : {};
   $('chips').textContent = '';
+  $('chips')._qty = {};
   renderChips($('chips'), true);
 
   checkPhotos.clear();
