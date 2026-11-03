@@ -836,7 +836,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-03.33';
+const APP_VERSION = '2026-11-03.34';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -2129,10 +2129,10 @@ const WHO = {
     empty: 'Всё куплено. Отличная работа!', info: 'Снабженцу купить',
     hint: 'Нажмите на товар — покажу, где его купить. Зажмите, чтобы перетащить в другой отдел' },
   manager: { tab: 'Управляющий', need: 'Заказать', done: 'Заказано', doneBtn: '✓ Заказано', give: 'Управляющему',
-    empty: 'Всё заказано 👍', info: 'Управляющему заказать',
+    empty: 'Всё заказано', info: 'Управляющему заказать',
     hint: 'Нажмите на товар — покажу магазин и телефон. Зажмите, чтобы перетащить в другой отдел' },
   '': { tab: 'Не разобрано', need: 'Кому отдать', done: 'Куплено', doneBtn: '✓ Куплено',
-    empty: 'Все товары разобраны 👍', info: 'Не разобрано',
+    empty: 'Все товары разобраны', info: 'Не разобрано',
     hint: 'Нажмите на товар и выберите: снабженцу или управляющему. В следующий раз он попадёт туда сам' },
 };
 let curWho = null;
@@ -3419,7 +3419,7 @@ function renderMyPay() {
   }
   const top = el('div', 'card my-total');
   top.append(el('div', 'note', 'К выплате'), el('div', 'big', `${fmt(d.due)} ₽`));
-  if (!d.units.length) top.appendChild(el('div', 'note', 'Сейчас всё выплачено 👍'));
+  if (!d.units.length) top.appendChild(el('div', 'note', 'Сейчас всё выплачено'));
   out.push(top);
 
   if (d.units.length) {
@@ -3980,7 +3980,7 @@ function renderRepairs() {
   const out = [];
   out.push(el('h2', 'sec', `Сломано${d.open.length ? ' · ' + d.open.length : ''}`));
   const open = el('div', 'card');
-  if (!d.open.length) open.appendChild(el('div', 'note', 'Сейчас всё работает 👍'));
+  if (!d.open.length) open.appendChild(el('div', 'note', 'Сейчас всё работает'));
   d.open.forEach(x => open.appendChild(repairItem(x)));
   out.push(open);
   if (d.fixed.length) {
@@ -4144,7 +4144,7 @@ function renderBills() {
   out.push(el('h2', 'sec', `Не оплачены${d.open.length ? ' · ' + d.open.length : ''}` +
     (d.openSum ? ` · ${fmt(d.openSum)} ₽` : '')));
   const open = el('div', 'card');
-  if (!d.open.length) open.appendChild(el('div', 'note', 'Неоплаченных счетов нет 👍'));
+  if (!d.open.length) open.appendChild(el('div', 'note', 'Неоплаченных счетов нет'));
   d.open.forEach(x => open.appendChild(billItem(x)));
   out.push(open);
   if (d.paid.length) {
