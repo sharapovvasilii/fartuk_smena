@@ -131,6 +131,23 @@
   .chip[aria-pressed="true"] { background: var(--accent); }
   /* Подсказка под «Другой человек…»: похожие сотрудники из списка */
   .name-hint { grid-column: 1 / -1; margin: 0; }
+  .inv-note-edit { margin-top: 8px; }
+  .inv-note-edit textarea { margin: 0 0 6px; }
+  .inv-note-btns { display: flex; gap: 8px; }
+  .inv-note-btns .btn { margin: 0; flex: 1; }
+  .link-btn { background: none; border: 0; padding: 6px 0 0; font: inherit; font-size: 14px; color: var(--accent); font-weight: 600; }
+  /* Фото на весь экран: увеличить двумя пальцами или двойным нажатием */
+  .pv { position: fixed; inset: 0; z-index: 1000; background: #000; touch-action: none; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; }
+  .pv[hidden] { display: none; }
+  .pv img { max-width: 100%; max-height: 100%; transform-origin: center center; user-select: none; -webkit-user-select: none;
+    -webkit-user-drag: none; will-change: transform; }
+  .pv-x { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; width: 44px; height: 44px; border-radius: 22px;
+    border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 22px; line-height: 44px; z-index: 2; }
+  .pv-hint { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.6); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 14px; white-space: nowrap;
+    pointer-events: none; z-index: 2; }
+  .repair-photo { cursor: zoom-in; }
   .inv-hist-note { margin: 8px 0 2px; padding: 8px 10px; background: var(--field); border-radius: 10px; font-size: 14px; white-space: pre-wrap; }
   .name-hint .chips { margin: 0; }
   .name-hint .note { margin: 2px 0 6px; color: var(--warn); font-weight: 600; }
@@ -429,6 +446,13 @@
   .cmp.up { color: var(--ok); }
   .cmp.down { color: var(--err); }
   .kv { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; }
+  .kv.tap { cursor: pointer; }
+  .kv.tap > div:first-child { color: var(--accent); font-weight: 600; }
+  .exp-list { background: var(--field); border-radius: 10px; padding: 4px 10px; margin: 2px 0 6px; font-size: 14px; }
+  .exp-day { padding: 6px 0; border-top: 1px solid rgba(0,0,0,.06); }
+  .exp-day:first-child { border-top: none; }
+  .exp-day .exp-h { display: flex; justify-content: space-between; font-weight: 700; }
+  .exp-day .exp-i { display: flex; justify-content: space-between; gap: 8px; color: #555; padding: 2px 0 0 10px; }
   .kv b { font-weight: 600; }
   .kv small { display: block; color: var(--hint); font-size: 11px; }
   .bad-row { color: var(--warn); }
@@ -647,6 +671,11 @@
 </main>
 
 <!-- Карточка товара: где купить -->
+<div class="pv" id="photoView" hidden>
+  <img id="pvImg" alt="Фото">
+  <button type="button" class="pv-x" id="pvClose" aria-label="Закрыть">✕</button>
+  <div class="pv-hint">Двумя пальцами — увеличить</div>
+</div>
 <div class="sheet-bg" id="itemSheet" hidden>
   <div class="sheet" id="itemSheetBody"></div>
 </div>
@@ -807,7 +836,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-03.31';
+const APP_VERSION = '2026-11-03.33';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -2803,6 +2832,42 @@ async function loadRevenue(from, to) {
   }
 }
 
+// «Расходы из кассы» — нажал, и под строкой список: по дням, на что и сколько
+let expOpen = false;
+function expRow(d, money) {
+  const wrap = el('div');
+  const days = (d.shifts || []).filter(s => (s.exps && s.exps.length) || s.exp)
+    .slice().sort((a, b) => (a.iso < b.iso ? -1 : 1));
+  if (!d.exp || !days.length) { wrap.appendChild(kv('Расходы из кассы', money(d.exp))); return wrap; }
+  const row = kv(`Расходы из кассы ${expOpen ? '▴' : '▾'}`, money(d.exp), expOpen ? 'скрыть' : 'нажмите — список');
+  row.classList.add('tap');
+  const list = el('div', 'exp-list');
+  list.hidden = !expOpen;
+  days.forEach(s => {
+    const day = el('div', 'exp-day');
+    const h = el('div', 'exp-h');
+    h.append(el('span', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}`), el('span', null, money(s.exp)));
+    day.appendChild(h);
+    (s.exps || []).forEach(x => {
+      const i = el('div', 'exp-i');
+      i.append(el('span', null, x.name || 'без названия'), el('span', null, money(x.sum)));
+      day.appendChild(i);
+    });
+    if (!s.exps) day.appendChild(el('div', 'exp-i', 'подробности появятся после обновления'));
+    list.appendChild(day);
+  });
+  row.addEventListener('click', () => {
+    expOpen = !expOpen;
+    list.hidden = !expOpen;
+    row.firstChild.firstChild.textContent = `Расходы из кассы ${expOpen ? '▴' : '▾'}`;
+    const small = row.firstChild.querySelector('small');
+    if (small) small.textContent = expOpen ? 'скрыть' : 'нажмите — список';
+    haptic('select');
+  });
+  wrap.append(row, list);
+  return wrap;
+}
+
 function kv(label, value, sub, sub2) {
   const row = el('div', 'kv');
   const left = el('div', null, label);
@@ -2837,7 +2902,7 @@ function renderRevenue(d) {
   const m2 = el('div', 'card');
   m2.append(kv('Безнал', money(d.card)), kv('Наличные', money(d.cash)), kv('QR', money(d.qr)),
     kv('Чеков', fmt(d.checks), d.checks ? `средний чек ${money(Math.round(d.rev / d.checks))}` : ''),
-    kv('Расходы из кассы', money(d.exp)), kv('Зарплата смен', money(d.salary), 'без окладов'));
+    expRow(d, money), kv('Зарплата смен', money(d.salary), 'без окладов'));
   out.push(m2);
 
   if (d.bad.length) {
@@ -3772,15 +3837,69 @@ function renderInv() {
       const c = el('div', 'card');
       c.appendChild(el('div', 'inv-hist-head', `${h.date} · ${h.who}`));
       c.appendChild(el('div', 'inv-hist', h.text));
-      if (h.note) {
-        const n = el('div', 'inv-hist-note');
-        n.append(el('b', null, 'Примечание: '), document.createTextNode(h.note));
-        c.appendChild(n);
-      }
+      c.appendChild(invHistNote(h));
       out.push(c);
     });
   }
   $('invBody').replaceChildren(...out);
+}
+
+// Примечание прошлой инвентаризации: показать, поправить или добавить
+let invNoteOpen = null;   // строка, у которой сейчас открыто окно правки
+function invHistNote(h) {
+  const wrap = el('div');
+  if (invNoteOpen === h.row) {
+    const box = el('div', 'inv-note-edit');
+    const ta = el('textarea');
+    ta.placeholder = 'Примечание к этой инвентаризации';
+    ta.value = h.note || '';
+    ta.maxLength = 1000;
+    const btns = el('div', 'inv-note-btns');
+    const save = el('button', 'btn', 'Сохранить');
+    save.type = 'button';
+    const cancel = el('button', 'btn btn-light', 'Отмена');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => { invNoteOpen = null; renderInv(); });
+    save.addEventListener('click', () => saveInvNote(h, ta.value.trim(), save));
+    btns.append(save, cancel);
+    box.append(ta, btns);
+    wrap.appendChild(box);
+    setTimeout(() => ta.focus(), 50);
+    return wrap;
+  }
+  if (h.note) {
+    const n = el('div', 'inv-hist-note');
+    n.append(el('b', null, 'Примечание: '), document.createTextNode(h.note));
+    wrap.appendChild(n);
+  }
+  if (h.row) {
+    const b = el('button', 'link-btn', h.note ? 'Изменить примечание' : '+ Добавить примечание');
+    b.type = 'button';
+    b.addEventListener('click', () => { invNoteOpen = h.row; haptic('select'); renderInv(); });
+    wrap.appendChild(b);
+  }
+  return wrap;
+}
+
+async function saveInvNote(h, note, btn) {
+  if (busy) return;
+  if (note === (h.note || '')) { invNoteOpen = null; return renderInv(); }
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  setBusy(true);
+  btnPending(btn, true);
+  try {
+    const data = await api({ action: 'invNote', row: h.row, date: h.date, note });
+    invData = data;
+    tabCachePut('inv', data);
+    invNoteOpen = null;
+    renderInv();
+    haptic('success');
+  } catch (e) {
+    btnPending(btn, false);
+    await alert_('Не получилось сохранить: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function submitInv(btn) {
@@ -3888,6 +4007,7 @@ function photoLoader(x, kind, count, label) {
         if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
         const img = el('img', 'repair-photo');
         img.src = data.data; img.alt = `${label} ${n + 1}`;
+        img.addEventListener('click', () => openPhotoView(img.src));
         wrap.appendChild(img);
       }
       btn.remove();
@@ -4052,8 +4172,10 @@ function billPhotoLoader(x) {
         if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
         const img = el('img', 'repair-photo');
         img.src = data.data; img.alt = `Фото счёта ${n + 1}`;
+        img.addEventListener('click', () => openPhotoView(img.src));
         wrap.appendChild(img);
       }
+      wrap.appendChild(el('div', 'note', 'Нажмите на фото, чтобы открыть на весь экран и увеличить.'));
       btn.remove();
     } catch (e) {
       btn.disabled = false; btn.textContent = label;
@@ -4063,6 +4185,98 @@ function billPhotoLoader(x) {
   wrap.appendChild(btn);
   return wrap;
 }
+
+/* ---------- просмотр фото на весь экран ---------- */
+// Двумя пальцами — увеличить, одним — двигать увеличенное, двойное нажатие — ×2,5 / обратно.
+const pv = { scale: 1, x: 0, y: 0, pts: new Map(), start: null, lastTap: 0 };
+function pvApply() { $('pvImg').style.transform = `translate(${pv.x}px, ${pv.y}px) scale(${pv.scale})`; }
+function pvReset() { pv.scale = 1; pv.x = 0; pv.y = 0; pvApply(); }
+function openPhotoView(src) {
+  $('pvImg').src = src;
+  pvReset();
+  $('photoView').hidden = false;
+  try { if (tg && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+  haptic('select');
+}
+function closePhotoView() {
+  $('photoView').hidden = true;
+  pv.pts.clear();
+  try { if (tg && tg.enableVerticalSwipes && screen !== 'buyer') tg.enableVerticalSwipes(); } catch (e) {}
+}
+(function setupPhotoView() {
+  const box = $('photoView');
+  $('pvClose').addEventListener('click', e => { e.stopPropagation(); closePhotoView(); });
+  const limit = () => {
+    // Не даём увести фото за край
+    const img = $('pvImg');
+    const mx = Math.max(0, (img.clientWidth * pv.scale - box.clientWidth) / 2);
+    const my = Math.max(0, (img.clientHeight * pv.scale - box.clientHeight) / 2);
+    pv.x = Math.min(mx, Math.max(-mx, pv.x));
+    pv.y = Math.min(my, Math.max(-my, pv.y));
+  };
+  const snapshot = () => {
+    const p = [...pv.pts.values()];
+    pv.start = { scale: pv.scale, x: pv.x, y: pv.y, p };
+    if (p.length >= 2) {
+      pv.start.dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
+      pv.start.mid = { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+    }
+  };
+  box.addEventListener('pointerdown', e => {
+    if (e.target.id === 'pvClose') return;
+    box.setPointerCapture(e.pointerId);
+    pv.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    snapshot();
+  });
+  box.addEventListener('pointermove', e => {
+    if (!pv.pts.has(e.pointerId)) return;
+    pv.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = [...pv.pts.values()], s = pv.start;
+    if (p.length >= 2 && s.dist) {
+      const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+      const mid = { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+      pv.scale = Math.min(6, Math.max(1, s.scale * dist / s.dist));
+      pv.x = s.x + (mid.x - s.mid.x);
+      pv.y = s.y + (mid.y - s.mid.y);
+    } else if (p.length === 1 && s.p.length === 1 && pv.scale > 1) {
+      pv.x = s.x + (p[0].x - s.p[0].x);
+      pv.y = s.y + (p[0].y - s.p[0].y);
+    }
+    limit();
+    pvApply();
+  });
+  const up = e => {
+    if (!pv.pts.has(e.pointerId)) return;
+    const s = pv.start;
+    const moved = s && s.p.length === 1 && Math.hypot(e.clientX - s.p[0].x, e.clientY - s.p[0].y) > 10;
+    pv.pts.delete(e.pointerId);
+    if (pv.scale < 1.05) pvReset();
+    snapshot();
+    // Двойное нажатие
+    if (!moved && pv.pts.size === 0 && s && s.p.length === 1) {
+      const now = Date.now();
+      if (now - pv.lastTap < 300) {
+        pv.lastTap = 0;
+        if (pv.scale > 1) pvReset();
+        else {
+          const r = box.getBoundingClientRect();
+          pv.scale = 2.5;
+          pv.x = (r.width / 2 - (e.clientX - r.left)) * 1.5;
+          pv.y = (r.height / 2 - (e.clientY - r.top)) * 1.5;
+          limit(); pvApply();
+        }
+      } else pv.lastTap = now;
+    }
+  };
+  box.addEventListener('pointerup', up);
+  box.addEventListener('pointercancel', up);
+  box.addEventListener('wheel', e => {
+    e.preventDefault();
+    pv.scale = Math.min(6, Math.max(1, pv.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+    if (pv.scale === 1) { pv.x = 0; pv.y = 0; }
+    limit(); pvApply();
+  }, { passive: false });
+})();
 
 function openBill(x) {
   const body = $('itemSheetBody');
