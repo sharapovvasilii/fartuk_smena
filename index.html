@@ -377,6 +377,16 @@
   .inv-hist { white-space: pre-line; font-size: 14px; padding-bottom: 6px; }
 
   /* Ремонт */
+  .idea-item { padding: 8px 0; border-top: 1px solid #f0f0ef; }
+  .idea-item:first-child { border-top: none; }
+  .idea-item .idea-text { white-space: pre-wrap; font-size: 15px; }
+  .idea-item small { display: block; color: var(--hint); font-size: 12px; margin-top: 2px; }
+  .idea-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .idea-item > div { flex: 1; min-width: 0; }
+  .idea-full { white-space: pre-wrap; font-size: 16px; margin: 6px 0 4px; }
+  .idea-com { background: var(--field); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
+  .idea-com .idea-text { white-space: pre-wrap; font-size: 14px; }
+  .idea-com small { display: block; color: var(--hint); font-size: 12px; margin-bottom: 2px; }
   #repairScreen textarea { margin: 6px 0; }
   #repairScreen .btn { margin-top: 4px; }
   .repair-item { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid #f0f0ef; cursor: pointer; }
@@ -514,7 +524,7 @@
   <button type="button" class="seg-btn" data-tab="mypay" hidden>Моя з/п</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="inv" hidden>Инвентаризация</button>
-  <button type="button" class="seg-btn" data-tab="repair" hidden>Ремонт</button>
+  <button type="button" class="seg-btn" data-tab="repair" hidden>Улучшения</button>
   <button type="button" class="seg-btn" data-tab="rev" hidden>Выручка</button>
   <button type="button" class="seg-btn" data-tab="pay" hidden>Зарплата</button>
   <button type="button" class="seg-btn" data-tab="staff" hidden>Сотрудники</button>
@@ -731,8 +741,8 @@
 <!-- Ремонт: что сломалось и как починили (все) -->
 <main id="repairScreen" hidden>
   <header>
-    <h1>Ремонт</h1>
-    <div class="sub">Что сломалось и как починили</div>
+    <h1>Улучшения</h1>
+    <div class="sub">Что сломалось, как починили, идеи</div>
   </header>
   <h2 class="sec">Что сломалось</h2>
   <div class="card">
@@ -836,7 +846,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-03.34';
+const APP_VERSION = '2026-11-04.35';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -3983,6 +3993,7 @@ function renderRepairs() {
   if (!d.open.length) open.appendChild(el('div', 'note', 'Сейчас всё работает'));
   d.open.forEach(x => open.appendChild(repairItem(x)));
   out.push(open);
+  out.push(...renderIdeas(d));
   if (d.fixed.length) {
     out.push(el('h2', 'sec', 'Починено'));
     const done = el('div', 'card');
@@ -3990,6 +4001,116 @@ function renderRepairs() {
     out.push(done);
   }
   $('repairList').replaceChildren(...out);
+}
+
+// «Сообщить/предложить»: окошко для идей и список того, что уже предлагали (видят все)
+let ideaDraft = storage(ls => ls.getItem('fartuk-idea-draft')) || '';
+function renderIdeas(d) {
+  const out = [el('h2', 'sec', 'Сообщить/предложить')];
+  const card = el('div', 'card');
+  const ta = el('textarea');
+  ta.placeholder = 'Есть идея, как сделать Фартук лучше? Напишите сюда.';
+  ta.maxLength = 2000;
+  ta.value = ideaDraft;
+  ta.addEventListener('input', () => { ideaDraft = ta.value; storage(ls => ls.setItem('fartuk-idea-draft', ideaDraft)); });
+  const btn = el('button', 'btn', 'Отправить');
+  btn.type = 'button';
+  btn.addEventListener('click', () => sendIdea(ta, btn));
+  card.append(ta, btn);
+  out.push(card);
+  const ideas = d.ideas || [];
+  if (ideas.length) {
+    const list = el('div', 'card');
+    list.appendChild(el('div', 'note', 'Уже предлагали:'));
+    ideas.forEach(x => {
+      const it = el('div', 'idea-item');
+      const main = el('div');
+      const n = (x.comments || []).length;
+      main.append(el('div', 'idea-text', x.text),
+        el('small', null, `${x.date} · ${x.who}` + (n ? ` · комментариев: ${n}` : '')));
+      it.append(main, el('span', 'repair-go', '›'));
+      if (x.id) it.addEventListener('click', () => openIdea(x.id));
+      list.appendChild(it);
+    });
+    out.push(list);
+  }
+  return out;
+}
+
+// Открыть предложение: текст целиком, комментарии и поле «Ваш комментарий»
+let ideaCommentDraft = {};
+function openIdea(id) {
+  const x = ((repairData && repairData.ideas) || []).find(i => i.id === id);
+  if (!x) return closeItem();
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, 'Предложение'));
+  body.appendChild(el('div', 'grp', `${x.date} · ${x.who}`));
+  body.appendChild(el('div', 'idea-full', x.text));
+  const coms = x.comments || [];
+  body.appendChild(el('h3', null, coms.length ? `Комментарии · ${coms.length}` : 'Комментарии'));
+  if (!coms.length) body.appendChild(el('div', 'note', 'Пока никто не написал. Будьте первым.'));
+  coms.forEach(c => {
+    const b = el('div', 'idea-com');
+    b.append(el('small', null, `${c.who} · ${c.date}`), el('div', 'idea-text', c.text));
+    body.appendChild(b);
+  });
+  const ta = el('textarea');
+  ta.placeholder = 'Ваш комментарий';
+  ta.maxLength = 1000;
+  ta.value = ideaCommentDraft[id] || '';
+  ta.addEventListener('input', () => { ideaCommentDraft[id] = ta.value; });
+  const send = el('button', 'btn', 'Комментировать');
+  send.type = 'button';
+  send.addEventListener('click', async () => {
+    if (busy) return;
+    const text = ta.value.trim();
+    if (text.length < 2) return alert_('Напишите комментарий.');
+    if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+    setBusy(true);
+    btnPending(send, true);
+    try {
+      repairData = await api({ action: 'ideaComment', id, text });
+      tabCachePut('repair', repairData);
+      delete ideaCommentDraft[id];
+      renderRepairs();
+      openIdea(id);
+      haptic('success');
+    } catch (e) {
+      btnPending(send, false);
+      await alert_('Не получилось отправить: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(ta, send, close);
+  $('itemSheet').hidden = false;
+}
+
+async function sendIdea(ta, btn) {
+  if (busy) return;
+  const text = ta.value.trim();
+  if (text.length < 3) return alert_('Напишите вашу идею.');
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  setBusy(true);
+  btnPending(btn, true);
+  try {
+    repairData = await api({ action: 'ideaAdd', text });
+    tabCachePut('repair', repairData);
+    ideaDraft = '';
+    storage(ls => ls.removeItem('fartuk-idea-draft'));
+    renderRepairs();
+    haptic('success');
+    await alert_('Спасибо! Идея сохранена.');
+  } catch (e) {
+    btnPending(btn, false);
+    await alert_('Не получилось отправить: ' + e.message);
+  } finally {
+    setBusy(false);
+  }
 }
 
 // Фото грузятся только по нажатию — через сервер
