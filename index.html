@@ -397,7 +397,9 @@
   .msg-meta { font-size: 11px; opacity: .6; text-align: right; margin-top: 1px; }
   .msg-del { background: none; border: 0; padding: 0; font: inherit; font-size: 11px; text-decoration: underline;
     color: inherit; opacity: .7; }
-  .msg-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 1px; }
+  .msg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: transform .15s; }
+  .msg.press { transform: scale(.96); }
+  .chat-hint { color: var(--hint); font-size: 12px; text-align: center; margin: -4px 0 6px; }
   .chat-editing { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600;
     color: var(--accent); padding: 4px 4px 0; }
   .chat-editing .msg-del { font-size: 13px; color: var(--hint); opacity: 1; }
@@ -866,7 +868,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-04.37';
+const APP_VERSION = '2026-11-04.38';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -4084,6 +4086,7 @@ function openIdea(id) {
   if (!coms.length) chat.appendChild(el('div', 'chat-empty', 'Пока никто не написал. Будьте первым.'));
   const me = myName();
   const boss = !!shownBoss;
+  let canAct = false;
   coms.forEach((c, n) => {
     const mine = c.who === me;
     const msg = el('div', 'msg' + (mine ? ' mine' : '') + (c.pending ? ' pending' : '') + (c.failed ? ' failed' : ''));
@@ -4092,24 +4095,15 @@ function openIdea(id) {
     const meta = el('div', 'msg-meta', c.failed ? 'не отправлено' : c.pending ? 'отправляется…'
       : (c.date || '').slice(0, 16) + (c.edited ? ' · изменено' : ''));
     msg.appendChild(meta);
-    // Свой — «изменить» и «удалить»; владелец — «удалить» у любого
+    // Зажать сообщение: своё — «Изменить» / «Удалить», владелец — «Удалить» у любого
     if (!c.pending && !c.failed && (mine || boss)) {
-      const acts = el('div', 'msg-acts');
-      if (mine) {
-        const ed = el('button', 'msg-del', 'изменить');
-        ed.type = 'button';
-        ed.addEventListener('click', () => { ideaEditing = { id, c, n }; haptic('select'); openIdea(id); });
-        acts.appendChild(ed);
-      }
-      const del = el('button', 'msg-del', 'удалить');
-      del.type = 'button';
-      del.addEventListener('click', () => deleteIdeaComment(id, c, n));
-      acts.appendChild(del);
-      msg.appendChild(acts);
+      canAct = true;
+      onLongPress(msg, () => msgMenu(id, c, n, mine));
     }
     chat.appendChild(msg);
   });
   body.appendChild(chat);
+  if (canAct) body.appendChild(el('div', 'chat-hint', 'Зажмите своё сообщение, чтобы изменить или удалить'));
 
   // Строка ввода, как в мессенджере. При правке своего комментария — над ней «Изменение · отмена».
   const editing = ideaEditing && ideaEditing.id === id ? ideaEditing : null;
@@ -4157,6 +4151,39 @@ function openIdea(id) {
     chat.scrollTop = chat.scrollHeight;
     if (editing) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }, 0);
+}
+
+// Долгое нажатие (~0,5 с) без сдвига пальца
+function onLongPress(node, fn) {
+  let t = null, x0 = 0, y0 = 0;
+  const stop = () => { clearTimeout(t); t = null; node.classList.remove('press'); };
+  node.addEventListener('pointerdown', e => {
+    x0 = e.clientX; y0 = e.clientY;
+    node.classList.add('press');
+    t = setTimeout(() => { t = null; node.classList.remove('press'); haptic('heavy'); fn(); }, 480);
+  });
+  node.addEventListener('pointermove', e => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => node.addEventListener(ev, stop));
+  node.addEventListener('contextmenu', e => e.preventDefault());   // не показывать меню браузера
+}
+
+// Меню сообщения: в Телеграме — родное окошко с кнопками
+function msgMenu(id, c, n, mine) {
+  const run = act => {
+    if (act === 'edit') { ideaEditing = { id, c, n }; openIdea(id); }
+    if (act === 'del') deleteIdeaComment(id, c, n);
+  };
+  const buttons = (mine ? [{ id: 'edit', type: 'default', text: 'Изменить' }] : [])
+    .concat([{ id: 'del', type: 'destructive', text: 'Удалить' }, { type: 'cancel' }]);
+  const preview = c.text.length > 80 ? c.text.slice(0, 80) + '…' : c.text;
+  if (tg && tg.showPopup && tg.isVersionAtLeast && tg.isVersionAtLeast('6.2')) {
+    try { tg.showPopup({ message: preview, buttons }, run); return; } catch (e) {}
+  }
+  if (mine) {
+    confirm_('Изменить это сообщение? (Отмена — удалить или закрыть)').then(ok => {
+      if (ok) run('edit'); else run('del');
+    });
+  } else run('del');
 }
 
 // Сохранить изменённый свой комментарий: сразу показываем новый текст, на сервер — в фоне
