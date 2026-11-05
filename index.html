@@ -106,18 +106,19 @@
   /* Сотрудники на смене */
   /* Строка смены: сверху × справа; ниже слева «должность», справа «кто»; ниже слева «Время», справа время */
   .staff { border-top: 1px solid #f0f0ef; padding: 10px 0; display: grid;
-    grid-template-columns: minmax(0, 44%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px; align-items: center; }
+    grid-template-columns: minmax(0, 44%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px; align-items: center; padding: 4px 0 10px; }
   .staff:first-child { border-top: 0; }
   .staff-top, .staff .s-line { display: contents; }
-  .staff .x { grid-column: 1 / -1; grid-row: 1; justify-self: end; margin-bottom: -10px; }
+  .staff .x { grid-column: 1 / -1; grid-row: 1; justify-self: end; height: 24px; padding: 0 2px; line-height: 24px; margin: 0; }
+  .staff .x::after { inset: -4px -10px -2px; }   /* зона нажатия не залезает на поле имени */
   .staff .s-role { grid-column: 1; grid-row: 2; }
   .staff .s-name { grid-column: 2; grid-row: 2; }
-  .staff .s-time-lbl { grid-column: 1; grid-row: 3; font-weight: 600; }
+  .staff .s-time-lbl { grid-column: 1; grid-row: 3; font-weight: 400; }
   .staff .s-line .pair { grid-column: 2; grid-row: 3; justify-self: end; }
   .staff > .full { grid-column: 1 / -1; margin: 0; }
   /* Должность — белое окно с рамкой и галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
   .staff-top .s-role {
-    width: 100%; min-width: 0; text-align: left; text-align-last: left; font-weight: 600; font-size: 16px;
+    width: 100%; min-width: 0; text-align: left; text-align-last: left; font-weight: 400; font-size: 16px;
     padding: 7px 18px 7px 0; border: 1px solid transparent; border-radius: 8px;
     background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a9a9a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 2px center;
   }
@@ -125,7 +126,7 @@
   .staff .s-name { width: 100%; min-width: 0; text-align: right; text-align-last: right; margin: 0; font-size: 16px; padding: 7px 8px;
     border: 1px solid transparent; }
   .staff .s-line .pair { flex: none; gap: 3px; }
-  .staff .s-line .pair input { width: 92px; padding: 8px 4px; font-size: 16px; text-align: center; }
+  .staff .s-line .pair input { width: 76px; padding: 8px 2px; font-size: 16px; text-align: center; }
   .staff .s-pay { display: none; }   /* «11 ч · ≈ 2 200 ₽» под строкой убрали */
   .staff .s-pay b { color: var(--text); font-weight: 600; }
   .senior-tag { color: var(--accent); font-size: 12px; font-weight: 600; }
@@ -299,6 +300,12 @@
   /* Много вкладок — одна строка, листается вбок */
   .tabs.scroll { display: flex; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .tabs.scroll::-webkit-scrollbar { display: none; }
+  /* Текст вкладок уходит за край не резко, а затухает заранее (слева — когда прокручено, справа — пока есть ещё вкладки) */
+  .tabs.scroll::before, .tabs.scroll::after { content: ''; flex: none; align-self: stretch; width: 28px; position: sticky; z-index: 2;
+    pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .tabs.scroll::before { left: 0; margin-right: -28px; background: linear-gradient(to right, var(--card) 25%, rgba(255,255,255,0)); }
+  .tabs.scroll::after { right: 0; margin-left: -28px; background: linear-gradient(to left, var(--card) 25%, rgba(255,255,255,0)); }
+  .tabs.scroll.fade-l::before, .tabs.scroll.fade-r::after { opacity: 1; }
   .tabs.scroll .seg-btn { flex: none; padding: 11px 16px; white-space: nowrap; }
 
   /* Зарплата */
@@ -913,7 +920,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.44';
+const APP_VERSION = '2026-11-05.45';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -2182,7 +2189,15 @@ function setupTabs(role, boss, canReport) {
   markTab(curTab);
 }
 
+function tabsFade() {
+  const bar = $('tabs');
+  bar.classList.toggle('fade-l', bar.classList.contains('scroll') && bar.scrollLeft > 2);
+  bar.classList.toggle('fade-r', bar.classList.contains('scroll') && bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 2);
+}
+$('tabs').addEventListener('scroll', tabsFade, { passive: true });
+
 function markTab(tab) {
+  requestAnimationFrame(tabsFade);
   $('tabs').querySelectorAll('.seg-btn').forEach(b => {
     const on = b.dataset.tab === tab;
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
