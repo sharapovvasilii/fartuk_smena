@@ -105,12 +105,12 @@
 
   /* Сотрудники на смене */
   /* Строка смены: сверху × справа; ниже слева «должность», справа «кто»; ниже слева «Время», справа время */
-  .staff { border-top: 1px solid #f0f0ef; padding: 10px 0; display: grid;
-    grid-template-columns: minmax(0, 46%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px; align-items: center; padding: 4px 0 10px; }
-  .staff:first-child { border-top: 0; }
+  .staff { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px;
+    align-items: center; padding: 0 0 12px; }   /* без линий между сотрудниками */
   .staff-top, .staff .s-line { display: contents; }
-  .staff .x { grid-column: 1 / -1; grid-row: 1; justify-self: end; height: 24px; padding: 0 2px; line-height: 24px; margin: 0; }
-  .staff .x::after { inset: -4px -10px -2px; }   /* зона нажатия не залезает на поле имени */
+  .staff .x { grid-column: 1 / -1; grid-row: 1; justify-self: end; height: 20px; padding: 0 2px; line-height: 20px;
+    font-size: 20px; margin: 0 0 -4px; }
+  .staff .x::after { inset: -4px -10px -1px; }   /* зона нажатия не залезает на поле имени */
   .staff .s-role { grid-column: 1; grid-row: 2; }
   .staff .s-name { grid-column: 2; grid-row: 2; }
   .staff .s-time-lbl { grid-column: 1; grid-row: 3; font-weight: 400; }
@@ -118,9 +118,9 @@
   .staff > .full { grid-column: 1 / -1; margin: 0; }
   /* Должность — белое окно с рамкой и галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
   .staff-top .s-role {
-    width: 100%; min-width: 0; text-align: left; text-align-last: left; font-weight: 400; font-size: 16px;
-    padding: 7px 24px 7px 8px; border: 1px solid transparent; border-radius: 8px;
-    background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a9a9a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 8px center;
+    width: auto; min-width: 0; margin-left: -8px; text-align: left; text-align-last: left; font-weight: 400; font-size: 16px;
+    padding: 7px 8px; border: 1px solid transparent; border-radius: 8px;
+    background: var(--field);   /* без стрелки */
   }
   /* «Кто» и время — в одной строке */
   .staff .s-name { width: 100%; min-width: 0; text-align: right; text-align-last: right; margin: 0; font-size: 16px; padding: 7px 8px;
@@ -915,7 +915,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.47';
+const APP_VERSION = '2026-11-05.49';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
