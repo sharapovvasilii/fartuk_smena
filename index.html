@@ -559,26 +559,26 @@
   .gate p { color: #7a7a7a; font-size: 14px; margin: 0 0 16px; max-width: 320px; }
   .gate input, .gate .btn { width: 100%; max-width: 320px; }
   .gate input { text-align: center; }
-  /* ===== Единые отступы (05.11.2026) =====
-     Текст (подписи, заголовки, текст внутри плашек) — на одной вертикали, 18 px от края карточки.
-     Плашки и поля — 10 px от края карточки с любой стороны (как сверху и снизу у поля «Старший смены»).
-     --ti — где начинается текст; --bx — на сколько плашка выходит за линию текста (это её внутренний отступ). */
-  :root { --ti: 18px; --bx: 8px; }
-  header { padding: 2px var(--ti) 4px; }
-  .sec { margin-left: var(--ti); margin-right: var(--ti); }
-  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note, #staffBody > .note, #myPayBody > .note { padding: 0 var(--ti); }
-  .sec-row { padding-right: var(--ti); }
-  .card { padding-left: var(--ti); padding-right: var(--ti); }
-  .card.add-row { padding: 10px; }
+  /* ===== Единые отступы на экране «Отчёт» (#form) =====
+     Только в отчёте: текст (заголовки, подписи, текст в плашках) — на одной вертикали, 18 px от края карточки;
+     плашки и поля — 10 px от края карточки слева и справа. Остальные экраны не трогаем — у них свои ровные отступы.
+     --ti — где начинается текст; --bx — на сколько плашка выходит за линию текста (её внутренний отступ). */
+  #form { --ti: 18px; --bx: 8px; }
+  #form > header { padding: 2px var(--ti) 4px; }
+  #form .sec { margin-left: var(--ti); margin-right: var(--ti); }
+  #form .card { padding-left: var(--ti); padding-right: var(--ti); }
   /* поле справа в строке «подпись — поле» */
-  .card .row > input, .card .row > select, .card .srow > input, .card .qty-row > :last-child, .card .adv > :last-child {
+  #form .card .row > input, #form .card .row > select, #form .card .srow > input, #form .card .qty-row > :last-child {
     margin-right: calc(-1 * var(--bx)); }
-  /* строки, где плашки идут от левого края: смена, расходы, авансы, сертификаты, морсы, фото, кнопки на всю ширину */
-  .card .staff, .card .exp, .card .drink, .card .photos, .card .chips, .card .plist, .card > textarea, .card > .full,
-  .card > .btn, .card .vote-pick { margin-left: calc(-1 * var(--bx)); margin-right: calc(-1 * var(--bx)); }
-  .card > textarea, .card > .full, .card > .btn, .card .vote-pick { width: calc(100% + 2 * var(--bx)); }
+  /* строки, что начинаются с плашки: смена, расходы, авансы, сертификаты, морсы, фото, заявка, большие поля и кнопки */
+  #form .card .staff, #form .card .exp, #form .card .drink, #form .card .photos, #form .cgroup .chips,
+  #form .cgroup .cat-typed, #form .card > textarea, #form .card > .btn {
+    margin-left: calc(-1 * var(--bx)); margin-right: calc(-1 * var(--bx)); }
+  #form .cgroup .cat-typed, #form .card > textarea, #form .card > .btn { width: calc(100% + 2 * var(--bx)); }
   /* внутри строки смены подписи и подсказки — на линии текста */
-  .staff .s-time-lbl, .staff .name-hint { padding-left: var(--bx); }
+  #form .staff .s-time-lbl, #form .staff .name-hint { padding-left: var(--bx); }
+  /* текст в первом поле строки — тоже ровно на линии текста */
+  #form .exp > :first-child, #form .drink > select, #form .card > textarea, #form .cgroup .cat-typed { padding-left: var(--bx); }
 </style>
 </head>
 <body>
@@ -935,7 +935,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.50';
+const APP_VERSION = '2026-11-05.51';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
