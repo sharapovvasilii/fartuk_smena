@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Фартук · Смена</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -63,6 +63,8 @@
     padding: 7px 10px; outline: none;
   }
   input::placeholder, textarea::placeholder { color: var(--hint); }
+  /* iPhone сам приближает страницу при вводе в поле мельче 16 px — на нём поля 16 px */
+  @supports (-webkit-touch-callout: none) { input, select, textarea { font-size: 16px !important; } }
   /* Курсор «|» при наборе — всегда заметный (в окне снизу iOS иначе может его не показать) */
   input, textarea { caret-color: var(--accent); -webkit-user-select: text; user-select: text; }
   input:focus, select:focus, textarea:focus { border-color: var(--accent); }
@@ -85,7 +87,9 @@
   .exp { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .exp .exp-name { flex: 1; min-width: 0; }
   .exp .exp-sum { width: 96px; text-align: right; }
-  .x { background: none; border: 0; color: var(--hint); font-size: 22px; padding: 0 6px; }
+  .x { background: none; border: 0; color: var(--hint); font-size: 22px; padding: 0 6px; position: relative; }
+  /* Область нажатия не меньше ~44 px, хотя вид кнопки прежний */
+  .x::after, .pay-undo::after { content: ''; position: absolute; inset: -12px -10px; }
   .exp > .x, .drink > .x { order: -1; flex-basis: 100%; text-align: right; line-height: 1; padding: 0 2px; margin-bottom: -4px; }
   /* Первую строку морсов не убирают — у неё нет ×, и отступ до подписи как у всех */
   #drinks .drink:first-child > .x { display: none; }
@@ -111,7 +115,7 @@
     border: 1px solid transparent; }
   .staff .s-line .pair { flex: none; gap: 3px; }
   .staff .s-line .pair input { width: 76px; padding: 7px 2px; font-size: 14px; }
-  .staff .s-pay { display: none; }   /* «11 ч · ≈ 2 200 ₽» под строкой убрали */
+  .staff .s-pay { display: none; }   /* «11 ч · ≈ 2 200 ₽» под строкой убрали */
   .staff .s-pay b { color: var(--text); font-weight: 600; }
   .senior-tag { color: var(--accent); font-size: 12px; font-weight: 700; }
 
@@ -194,6 +198,7 @@
     border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .btn.pending::before { animation: none; } }
   .btn-light { background: var(--field); color: var(--accent); text-align: center; margin: 8px 0 4px; }
   .btn-light.btn-del { color: #d32f2f; }
 
@@ -209,8 +214,8 @@
   .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .ph.add { font: 300 26px/1 Inter, sans-serif; color: #8a8a8a; cursor: pointer; }
   .ph .del {
-    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
-    border: 0; background: rgba(255, 255, 255, .9); color: #333; font-size: 15px; line-height: 22px; padding: 0;
+    position: absolute; top: 2px; right: 2px; width: 32px; height: 32px; border-radius: 50%;
+    border: 0; background: rgba(255, 255, 255, .9); color: #333; font-size: 18px; line-height: 32px; padding: 0;
   }
 
   /* Морсы */
@@ -294,12 +299,12 @@
   .pay-line small { display: block; color: var(--hint); font-size: 12px; }
   .pay-act { text-align: right; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
   .pay-btn { border: 0; border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 600;
-    background: var(--accent); color: #fff; white-space: nowrap; }
+    background: var(--accent); color: #fff; max-width: 160px; text-align: center; }
   .pay-btn.light { background: var(--field); color: var(--accent); }
   .pay-btn:disabled { opacity: .5; }
   .pay-done { color: var(--ok); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .pay-extra { color: var(--warn); font-size: 12px; font-weight: 600; }
-  .pay-undo { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12px; color: var(--hint); text-decoration: underline; }
+  .pay-undo { position: relative; background: none; border: 0; padding: 2px 0; font: inherit; font-size: 13px; color: var(--hint); text-decoration: underline; }
   .pay-shifts { font-size: 13px; color: #555; padding: 6px 0 0; }
   .pay-shifts div { padding: 2px 0; }
   .adv { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
@@ -591,7 +596,7 @@
   <button type="button" class="link" id="addStaff">+ Добавить сотрудника</button>
 </div>
 <div class="card">
-  <label class="row"><span>Старший смены<small>+ 500 ₽ к зарплате</small></span><select id="senior"></select></label>
+  <label class="row"><span>Старший смены<small>+ 500 ₽ к зарплате</small></span><select id="senior"></select></label>
 </div>
 
 <div class="card">
@@ -636,12 +641,12 @@
 
 <h2 class="sec">Премии</h2>
 <div class="card">
-  <label class="row"><span>Отзывов в 2ГИС за смену<small>+ 50 ₽ каждому администратору на смене</small></span>
+  <label class="row"><span>Отзывов в 2ГИС за смену<small>+ 50 ₽ каждому администратору на смене</small></span>
     <input class="num" id="gis2" inputmode="numeric" autocomplete="off" placeholder="-"></label>
 </div>
 <div class="card">
   <h3>Морсы и лимонады</h3>
-  <div class="note" style="font-size:12px;margin:0 0 4px">+ 20 ₽ за бутылку тому, кто сделал.</div>
+  <div class="note" style="font-size:12px;margin:0 0 4px">+ 20 ₽ за бутылку тому, кто сделал.</div>
   <div id="drinks"></div>
   <button type="button" class="link" id="addDrink">+ Ещё кто сделал</button>
   <div id="drinkPhotoBlock">
@@ -689,7 +694,7 @@
   <div id="boughtBlock" hidden>
     <div class="sec-row">
       <h2 class="sec" id="boughtTitle">Куплено</h2>
-      <button type="button" class="link" id="clearBought">Очистить</button>
+      <button type="button" class="link" id="clearBought">Убрать все</button>
     </div>
     <div class="card"><div class="plist" id="boughtList"></div></div>
   </div>
@@ -812,7 +817,7 @@
     <div class="photos" id="billPhotos"></div>
     <input type="file" id="billPhotoInput" accept="image/*" multiple hidden>
     <input type="text" class="bill-field" id="billFrom" maxlength="100" autocomplete="off" placeholder="От кого счёт — например «Инкотрейд»">
-    <input type="text" class="bill-field" id="billSum" inputmode="decimal" autocomplete="off" placeholder="Сумма, ₽ (если знаете)">
+    <input type="text" class="bill-field" id="billSum" inputmode="decimal" autocomplete="off" placeholder="Сумма, ₽ (если знаете)">
     <textarea id="billNote" placeholder="Комментарий — за что, до какого числа оплатить (можно не писать)"></textarea>
     <button type="button" class="btn" id="billSend">Отправить счёт</button>
   </div>
@@ -889,7 +894,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.39';
+const APP_VERSION = '2026-11-05.40';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -927,7 +932,7 @@ function fmt(n) {
   if (n == null || isNaN(n)) return '—';
   const neg = n < 0;
   const [i, f] = String(Math.abs(Math.round(n * 100) / 100)).split('.');
-  return (neg ? '−' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (f ? ',' + f : '');
+  return (neg ? '−' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (f ? ',' + f : '');
 }
 function storage(fn) { try { return fn(window.localStorage); } catch (e) { return null; } }
 function el(tag, cls, text) {
@@ -1682,7 +1687,7 @@ function addAdvance(name = '', sum = '') {
 function addCert(kind, num = '', sum = '') {
   const row = el('div', 'exp cert');
   const n = el('input', 'exp-name'); n.placeholder = 'Номер сертификата'; n.value = num; n.autocomplete = 'off';
-  const s = el('input', 'exp-sum'); s.inputMode = 'decimal'; s.placeholder = 'Номинал ₽'; s.value = sum;
+  const s = el('input', 'exp-sum'); s.inputMode = 'decimal'; s.placeholder = 'Номинал ₽'; s.value = sum;
   const x = el('button', 'x', '×'); x.type = 'button';
   x.setAttribute('aria-label', 'Удалить сертификат');
   x.addEventListener('click', () => { row.remove(); saveDraftSoon(); });
@@ -1734,7 +1739,7 @@ function updatePayHints(r) {
     const total = h * P.hourRate + revenueBonus(r.revenue, !!info.pizza, P) +
       (name && fields.senior.value === name ? P.seniorBonus : 0) +
       (info.admin ? gis * P.gisBonus : 0) + (name && drinks[name] ? drinks[name] * P.drinkBonus : 0);
-    row.pay.append(`${h} ч · `, el('b', null, `≈ ${fmt(total)} ₽`));
+    row.pay.append(`${h} ч · `, el('b', null, `≈ ${fmt(total)} ₽`));
     if (name && fields.senior.value === name) row.pay.append(' ', el('span', 'senior-tag', '⭐'));
   });
 }
@@ -1784,20 +1789,20 @@ function collect() {
 
 function recalc() {
   const r = collect();
-  $('revenue').textContent = (r.cash == null && r.card == null && r.qr == null) ? '-' : fmt(r.revenue) + ' ₽';
+  $('revenue').textContent = (r.cash == null && r.card == null && r.qr == null) ? '-' : fmt(r.revenue) + ' ₽';
   const st = $('cashStatus');
   if (r.cashStart == null || r.cash == null) {
     st.className = 'status';
     st.textContent = 'Заполните кассу на начало и наличные — посчитаю, сколько должно остаться.';
   } else if (r.diff == null) {
     st.className = 'status';
-    st.textContent = `Должно остаться в кассе: ${fmt(r.cashExpected)} ₽`;
+    st.textContent = `Должно остаться в кассе: ${fmt(r.cashExpected)} ₽`;
   } else if (Math.abs(r.diff) < 0.005) {
     st.className = 'status ok';
-    st.textContent = `✅ Касса сходится: ${fmt(r.cashExpected)} ₽`;
+    st.textContent = `✅ Касса сходится: ${fmt(r.cashExpected)} ₽`;
   } else {
     st.className = 'status warn';
-    st.textContent = `⚠️ Не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽ (должно быть ${fmt(r.cashExpected)} ₽)`;
+    st.textContent = `⚠️ Не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽ (должно быть ${fmt(r.cashExpected)} ₽)`;
   }
   updatePayHints(r);
 }
@@ -2163,7 +2168,12 @@ function markTab(tab) {
     const on = b.dataset.tab === tab;
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
     if (on && $('tabs').classList.contains('scroll')) {
-      try { b.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      // после отрисовки: ставим активную вкладку в середину полосы (иначе она может торчать за краем)
+      requestAnimationFrame(() => {
+        const bar = $('tabs');
+        const left = Math.max(0, b.offsetLeft - (bar.clientWidth - b.offsetWidth) / 2);
+        try { bar.scrollTo({ left: left, behavior: 'smooth' }); } catch (e) { bar.scrollLeft = left; }
+      });
     }
   });
 }
@@ -2988,7 +2998,7 @@ function kv(label, value, sub, sub2) {
 
 function renderRevenue(d) {
   const out = [];
-  const money = n => fmt(n) + ' ₽';
+  const money = n => fmt(n) + ' ₽';
 
   const top = el('div', 'card');
   top.append(el('div', 'note', 'Выручка'), el('div', 'big', money(d.rev)));
@@ -3227,7 +3237,7 @@ let bestMonth = '';   // какой месяц открыт в окне выбо
 function renderBest(d) {
   const card = el('div', 'card');
   card.appendChild(el('h3', null, 'Сотрудник месяца 🏆'));
-  card.appendChild(el('div', 'note', `Премия ${fmt(d.bestBonus)} ₽. Выбирает управляющий.`));
+  card.appendChild(el('div', 'note', `Премия ${fmt(d.bestBonus)} ₽. Выбирает управляющий.`));
   const picks = d.best || [];
   if (!picks.length) return card;
   if (!picks.some(b => b.month === bestMonth)) bestMonth = picks[0].month;
@@ -3252,7 +3262,7 @@ function renderBest(d) {
   sel.addEventListener('change', async () => {
     const name = sel.value;
     const ok = await payPost({ action: 'best', month: b.month, name },
-      name ? `Сотрудник месяца за ${monthName(b.month)} — ${name}? Премия ${fmt(d.bestBonus)} ₽, в чат придёт сообщение.`
+      name ? `Сотрудник месяца за ${monthName(b.month)} — ${name}? Премия ${fmt(d.bestBonus)} ₽, в чат придёт сообщение.`
         : `Отменить выбор сотрудника месяца за ${monthName(b.month)}?`);
     if (!ok) sel.value = b.name;
   });
@@ -3262,7 +3272,7 @@ function renderBest(d) {
 }
 
 function renderPay(d) {
-  const money = n => fmt(n) + ' ₽';
+  const money = n => fmt(n) + ' ₽';
   const out = [];
 
   const sum = el('div', 'card');
@@ -3318,22 +3328,22 @@ function renderPay(d) {
       const hadAdvance = (u.log || []).some(p => /^аванс/.test(p.label));
       if (isMonth || hadAdvance) (u.log || []).forEach(p => {
         const kind = /^аванс/.test(p.label) ? 'аванс' : /остаток/.test(p.label) ? 'остаток' : 'выдано';
-        info.appendChild(el('small', null, `${kind} ${fmt(p.sum)} ₽ — ${p.date}`));
+        info.appendChild(el('small', null, `${kind} ${fmt(p.sum)} ₽ — ${p.date}`));
       });
 
       const act = el('div', 'pay-act');
       if (u.due > 0) {
         const rest = isMonth || hadAdvance;
         if (u.paid > 0 && !rest) act.appendChild(el('div', 'pay-extra', `доплата +${fmt(u.due)}`));
-        const b = el('button', 'pay-btn', `${u.paid > 0 ? (rest ? 'Остаток' : 'Доплатить') : 'Выплатить'} ${fmt(u.due)} ₽`);
+        const b = el('button', 'pay-btn', `${u.paid > 0 ? (rest ? 'Выплатить остаток' : 'Доплатить') : 'Выплатить'} ${fmt(u.due)} ₽`);
         b.type = 'button';
         b.addEventListener('click', e => {
           e.stopPropagation();
-          payPost({ action: 'payout', name: p.name, key: u.key }, `Отметить, что ${p.name} выплачено ${fmt(u.due)} ₽ (${label})?`);
+          payPost({ action: 'payout', name: p.name, key: u.key }, `Отметить, что ${p.name} выплачено ${fmt(u.due)} ₽ (${label})?`);
         });
         act.appendChild(b);
       } else {
-        act.appendChild(el('div', 'pay-done', u.due < 0 ? `переплата ${fmt(-u.due)} ₽` : '✓ выплачено'));
+        act.appendChild(el('div', 'pay-done', u.due < 0 ? `переплата ${fmt(-u.due)} ₽` : '✓ выплачено'));
       }
       if (u.paid > 0) {
         const undo = el('button', 'pay-undo', 'отменить последнюю');
@@ -3357,8 +3367,8 @@ function renderPay(d) {
         b.addEventListener('click', () => {
           const s = num(input.value);
           if (!(s > 0)) return alert_('Напишите сумму аванса.');
-          if (s > u.due) return alert_(`Это больше, чем осталось выплатить (${fmt(u.due)} ₽).`);
-          payPost({ action: 'payout', name: p.name, key: u.key, sum: s }, `Выдать ${p.name} аванс ${fmt(s)} ₽ (${label})?`);
+          if (s > u.due) return alert_(`Это больше, чем осталось выплатить (${fmt(u.due)} ₽).`);
+          payPost({ action: 'payout', name: p.name, key: u.key, sum: s }, `Выдать ${p.name} аванс ${fmt(s)} ₽ (${label})?`);
         });
         adv.append(input, b);
         box.appendChild(adv);
@@ -3377,7 +3387,7 @@ function renderPay(d) {
           if (s.senior) bits.push(`старший ${fmt(s.senior)}`);
           if (s.gis) bits.push(`2ГИС ${fmt(s.gis)}`);
           if (s.drinks) bits.push(`морсы ${s.bottles} бут. = ${fmt(s.drinks)}`);
-          det.appendChild(el('div', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}: ${fmt(s.total)} ₽ — ${bits.join(', ')}`));
+          det.appendChild(el('div', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}: ${fmt(s.total)} ₽ — ${bits.join(', ')}`));
         });
         line.addEventListener('click', () => { det.hidden = !det.hidden; });
         box.appendChild(det);
@@ -3524,7 +3534,7 @@ function renderMyPay() {
     return;
   }
   const top = el('div', 'card my-total');
-  top.append(el('div', 'note', 'К выплате'), el('div', 'big', `${fmt(d.due)} ₽`));
+  top.append(el('div', 'note', 'К выплате'), el('div', 'big', `${fmt(d.due)} ₽`));
   if (!d.units.length) top.appendChild(el('div', 'note', 'Сейчас всё выплачено'));
   out.push(top);
 
@@ -3537,7 +3547,7 @@ function renderMyPay() {
       left.appendChild(el('b', null, capFirst(unitLabel(u))));
       // Неделя ещё не закончилась — сумма будет расти
       if (u.key.startsWith('неделя:') && d.today <= u.to) left.appendChild(el('div', 'my-wait', 'неделя ещё идёт — сумма может вырасти'));
-      if (u.paid > 0) left.appendChild(el('div', 'my-part', `уже выдано ${fmt(u.paid)} ₽ из ${fmt(u.total)} ₽`));
+      if (u.paid > 0) left.appendChild(el('div', 'my-part', `уже выдано ${fmt(u.paid)} ₽ из ${fmt(u.total)} ₽`));
       line.append(left, el('b', 'my-sum', `${fmt(u.due)} ₽`));
       box.appendChild(line);
       if (u.shifts && u.shifts.length) {
@@ -3740,7 +3750,7 @@ let ownerView = '';     // чьи затраты показаны — имя в�
 // Плюс — потратил на бизнес, минус — взял себе (личная покупка, личный счёт)
 function renderOwner() {
   const d = ownerData;
-  const money = n => (n < 0 ? '−' : '') + fmt(Math.abs(n)) + ' ₽';
+  const money = n => (n < 0 ? '−' : '') + fmt(Math.abs(n)) + ' ₽';
   const out = [];
 
   // Переключатель владельцев в один ряд — у каждого свои суммы и свои записи.
@@ -3769,8 +3779,8 @@ function renderOwner() {
   const cur = d.per.find(x => x.name === ownerView) || { total: 0, plus: 0, minus: 0 };
   const myItems = ownerView ? d.items.filter(it => it.who === ownerView) : d.items;
   top.append(el('div', 'note', `${ownerView ? ownerView + ': ' : ''}на бизнес минус взятое себе`), el('div', 'big', money(cur.total)));
-  top.appendChild(kv('+ На бизнес', fmt(cur.plus || 0) + ' ₽'));
-  top.appendChild(kv('− Себе (личное)', fmt(cur.minus || 0) + ' ₽'));
+  top.appendChild(kv('+ На бизнес', fmt(cur.plus || 0) + ' ₽'));
+  top.appendChild(kv('− Себе (личное)', fmt(cur.minus || 0) + ' ₽'));
   top.appendChild(kv('Записей', String(myItems.length)));
   out.push(top);
 
@@ -3799,7 +3809,7 @@ function renderOwner() {
   const title = el('input');
   title.placeholder = 'Название (на что)'; title.maxLength = 80; title.autocomplete = 'off';
   const sum = el('input');
-  sum.placeholder = 'Сумма, ₽'; sum.inputMode = 'decimal'; sum.autocomplete = 'off';
+  sum.placeholder = 'Сумма, ₽'; sum.inputMode = 'decimal'; sum.autocomplete = 'off';
   if (ed) { title.value = ed.title; sum.value = String(Math.abs(ed.sum)); }
   const btn = el('button', 'btn', ed ? 'Сохранить изменения' : 'Добавить');
   btn.type = 'button';
@@ -4632,7 +4642,7 @@ function billItem(x) {
   if (x.photos) bits.push(`📷 ${x.photos}`);
   main.appendChild(el('small', null, bits.join(' · ')));
   row.appendChild(main);
-  if (x.sum != null) row.appendChild(el('span', 'bill-sum', fmt(x.sum) + ' ₽'));
+  if (x.sum != null) row.appendChild(el('span', 'bill-sum', fmt(x.sum) + ' ₽'));
   row.appendChild(el('span', 'repair-go', '›'));
   row.addEventListener('click', () => openBill(x));
   return row;
@@ -4642,7 +4652,7 @@ function renderBills() {
   const d = billData;
   const out = [];
   out.push(el('h2', 'sec', `Не оплачены${d.open.length ? ' · ' + d.open.length : ''}` +
-    (d.openSum ? ` · ${fmt(d.openSum)} ₽` : '')));
+    (d.openSum ? ` · ${fmt(d.openSum)} ₽` : '')));
   const open = el('div', 'card');
   if (!d.open.length) open.appendChild(el('div', 'note', 'Неоплаченных счетов нет'));
   d.open.forEach(x => open.appendChild(billItem(x)));
@@ -4783,7 +4793,7 @@ function openBill(x) {
   body.textContent = '';
   body.appendChild(el('h2', null, x.from || 'Счёт'));
   body.appendChild(el('div', 'grp', `${x.date} · прислал(а) ${x.who}`));
-  if (x.sum != null) body.appendChild(el('div', 'repair-text', `💰 Сумма: ${fmt(x.sum)} ₽`));
+  if (x.sum != null) body.appendChild(el('div', 'repair-text', `💰 Сумма: ${fmt(x.sum)} ₽`));
   if (x.note) body.appendChild(el('div', 'repair-text', '📝 ' + x.note));
   body.appendChild(billPhotoLoader(x));
   if (x.status === 'оплачен') {
@@ -5009,7 +5019,7 @@ function applyLast(last) {
   if (!last) return;
   $('lastInfo').textContent = `Прошлый отчёт: ${ddmm(last.date)}${last.author ? ', ' + last.author : ''}`;
   if (last.cashEnd != null && last.cashEnd !== '') {
-    $('cashStartHint').textContent = `по прошлому отчёту: ${fmt(Number(last.cashEnd))} ₽`;
+    $('cashStartHint').textContent = `по прошлому отчёту: ${fmt(Number(last.cashEnd))} ₽`;
     if (fields.cashStart.value === '') { fields.cashStart.value = last.cashEnd; recalc(); }
   }
   stockEls.forEach(s => {
@@ -5081,7 +5091,7 @@ async function submit() {
   if (!r.senior) warnings.push('Не выбран старший смены.');
   const emptyStock = r.stock.filter(s => s.value == null).length;
   if (emptyStock) warnings.push(`Не заполнено позиций товара: ${emptyStock}.`);
-  if (r.diff) warnings.push(`Касса не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽.`);
+  if (r.diff) warnings.push(`Касса не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽.`);
   if (warnings.length && !(await confirm_(warnings.join('\n') + '\nВсё равно отправить?'))) return;
 
   if (!inTg) return alert_('Откройте форму через бота в Телеграме — иначе отчёт не отправится.');
