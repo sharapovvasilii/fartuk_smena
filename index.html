@@ -105,7 +105,7 @@
 
   /* Сотрудники на смене */
   /* Строка смены: сверху × справа; ниже слева «должность», справа «кто»; ниже слева «Время», справа время */
-  .staff { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px;
+  .staff { display: grid; grid-template-columns: minmax(0, 49%) minmax(0, 1fr); column-gap: 8px; row-gap: 8px;
     align-items: center; padding: 0 0 12px; }   /* без линий между сотрудниками */
   .staff-top, .staff .s-line { display: contents; }
   .staff .x { grid-column: 1 / -1; grid-row: 1; justify-self: end; height: 20px; padding: 0 2px; line-height: 20px;
@@ -118,7 +118,7 @@
   .staff > .full { grid-column: 1 / -1; margin: 0; }
   /* Должность — белое окно с рамкой и галочкой ▾: повар может выйти помощником пиццмейкера и т. п. */
   .staff-top .s-role {
-    width: auto; min-width: 0; margin-left: -8px; text-align: left; text-align-last: left; font-weight: 400; font-size: 16px;
+    width: auto; min-width: 0; text-align: left; text-align-last: left; font-weight: 400; font-size: 16px;
     padding: 7px 8px; border: 1px solid transparent; border-radius: 8px;
     background: var(--field);   /* без стрелки */
   }
@@ -559,6 +559,26 @@
   .gate p { color: #7a7a7a; font-size: 14px; margin: 0 0 16px; max-width: 320px; }
   .gate input, .gate .btn { width: 100%; max-width: 320px; }
   .gate input { text-align: center; }
+  /* ===== Единые отступы (05.11.2026) =====
+     Текст (подписи, заголовки, текст внутри плашек) — на одной вертикали, 18 px от края карточки.
+     Плашки и поля — 10 px от края карточки с любой стороны (как сверху и снизу у поля «Старший смены»).
+     --ti — где начинается текст; --bx — на сколько плашка выходит за линию текста (это её внутренний отступ). */
+  :root { --ti: 18px; --bx: 8px; }
+  header { padding: 2px var(--ti) 4px; }
+  .sec { margin-left: var(--ti); margin-right: var(--ti); }
+  main > .note, main > p.note, #payBody > .note, #revBody > .note, #stockBlock > .note, #staffBody > .note, #myPayBody > .note { padding: 0 var(--ti); }
+  .sec-row { padding-right: var(--ti); }
+  .card { padding-left: var(--ti); padding-right: var(--ti); }
+  .card.add-row { padding: 10px; }
+  /* поле справа в строке «подпись — поле» */
+  .card .row > input, .card .row > select, .card .srow > input, .card .qty-row > :last-child, .card .adv > :last-child {
+    margin-right: calc(-1 * var(--bx)); }
+  /* строки, где плашки идут от левого края: смена, расходы, авансы, сертификаты, морсы, фото, кнопки на всю ширину */
+  .card .staff, .card .exp, .card .drink, .card .photos, .card .chips, .card .plist, .card > textarea, .card > .full,
+  .card > .btn, .card .vote-pick { margin-left: calc(-1 * var(--bx)); margin-right: calc(-1 * var(--bx)); }
+  .card > textarea, .card > .full, .card > .btn, .card .vote-pick { width: calc(100% + 2 * var(--bx)); }
+  /* внутри строки смены подписи и подсказки — на линии текста */
+  .staff .s-time-lbl, .staff .name-hint { padding-left: var(--bx); }
 </style>
 </head>
 <body>
@@ -915,7 +935,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.49';
+const APP_VERSION = '2026-11-05.50';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
