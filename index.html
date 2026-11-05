@@ -328,6 +328,7 @@
   .my-shift { padding: 4px 0 !important; }
   .my-shift small { display: block; color: var(--hint); font-size: 12px; }
   .staff-row { border-bottom: 1px solid var(--field); }
+  .staff-name { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
   .staff-row:last-child { border-bottom: none; }
   .staff-row select { width: 52%; flex: none; }
   .staff-row select.empty { color: var(--hint); border-color: var(--accent); }
@@ -407,6 +408,14 @@
   .chat-bar textarea { flex: 1; min-height: 40px; max-height: 110px; margin: 0; border-radius: 20px; padding: 9px 14px; resize: none; }
   .chat-send { flex: none; width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--accent); color: #fff;
     display: flex; align-items: center; justify-content: center; }
+  .chat-attach { flex: none; width: 40px; height: 40px; border-radius: 20px; border: 0; background: none; color: var(--hint);
+    display: flex; align-items: center; justify-content: center; padding: 0; }
+  .chat-photos { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0; }
+  .chat-photos .ph { width: 56px; height: 56px; }
+  .msg-photos { margin-top: 4px; }
+  .msg-photos img { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; margin-top: 4px; }
+  .msg-photos .msg-ph-btn { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 14px; color: inherit;
+    text-decoration: underline; }
   .chat-btns { display: flex; gap: 8px; }
   .chat-btns .btn { flex: 1; margin: 0; }
   #repairScreen textarea { margin: 6px 0; }
@@ -606,8 +615,19 @@
   <div class="lbl">Расходы из кассы<small style="display:block;color:var(--hint);font-size:11px">зарплата, аванс, премия, покупки</small></div>
   <div id="expenses"></div>
   <button type="button" class="link" id="addExpense">+ Добавить расход</button>
+  <div class="lbl">Аванс<small style="display:block;color:var(--hint);font-size:11px">кто взял из кассы — сразу идёт в расходы и в зарплату</small></div>
+  <div id="advances"></div>
+  <button type="button" class="link" id="addAdvance">+ Кто взял аванс</button>
+  <div class="lbl">Использованные сертификаты<small style="display:block;color:var(--hint);font-size:11px">номер и номинал; номер и номинал</small></div>
+  <div id="certUsed"></div>
+  <button type="button" class="link" id="addCertUsed">+ Использован сертификат</button>
   <div id="cashEndRow"></div>
   <div class="status" id="cashStatus"></div>
+</div>
+<div class="card">
+  <div class="lbl">Проданные сертификаты<small style="display:block;color:var(--hint);font-size:11px">номер и номинал</small></div>
+  <div id="certSold"></div>
+  <button type="button" class="link" id="addCertSold">+ Продан сертификат</button>
 </div>
 <div class="card">
   <label class="row"><span>Количество чеков</span>
@@ -771,6 +791,7 @@
     <div class="ph-head"><b>Фото</b><small>Можно без фото</small></div>
     <div class="photos" id="repairPhotos"></div>
     <input type="file" id="repairPhotoInput" accept="image/*" multiple hidden>
+    <input type="file" id="ideaPhotoInput" accept="image/*" multiple hidden>
     <textarea id="repairWhat" placeholder="Что сломано — например «не греет печь, нижний ярус»"></textarea>
     <textarea id="repairIdea" placeholder="Как починить или что сделать (если знаете)"></textarea>
     <button type="button" class="btn" id="repairSend">Сообщить о поломке</button>
@@ -868,7 +889,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-04.38';
+const APP_VERSION = '2026-11-05.39';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1619,6 +1640,9 @@ function build() {
 
   $('addStaff').addEventListener('click', () => { const r = addStaffRow({ role: 'Повар' }); r.name.focus(); onStaffChange(); });
   $('addExpense').addEventListener('click', () => { addExpense().focus(); saveDraftSoon(); });
+  $('addAdvance').addEventListener('click', () => { addAdvance().focus(); saveDraftSoon(); });
+  $('addCertSold').addEventListener('click', () => { addCert('certSold').focus(); saveDraftSoon(); });
+  $('addCertUsed').addEventListener('click', () => { addCert('certUsed').focus(); saveDraftSoon(); });
   $('addDrink').addEventListener('click', () => { addDrink(); recalc(); saveDraftSoon(); });
 }
 
@@ -1633,6 +1657,45 @@ function addExpense(name = '', sum = '') {
   $('expenses').appendChild(row);
   return n;
 }
+
+// Аванс: кто взял (из списка сотрудников) + сумма. Идёт в расходы кассы.
+function addAdvance(name = '', sum = '') {
+  const row = el('div', 'exp adv');
+  const n = el('select', 'exp-name');
+  n.setAttribute('aria-label', 'Кто взял аванс');
+  n.add(new Option('Кто взял аванс…', ''));
+  const names = (config.staff || []).map(s => s.name);
+  if (name && !names.includes(name)) names.unshift(name);
+  names.forEach(x => n.add(new Option(x, x)));
+  n.value = name;
+  const s = el('input', 'exp-sum'); s.inputMode = 'decimal'; s.placeholder = '₽'; s.value = sum;
+  const x = el('button', 'x', '×'); x.type = 'button';
+  x.setAttribute('aria-label', 'Удалить аванс');
+  n.addEventListener('change', saveDraftSoon);
+  x.addEventListener('click', () => { row.remove(); recalc(); saveDraftSoon(); });
+  row.append(n, s, x);
+  $('advances').appendChild(row);
+  return n;
+}
+
+// Сертификат: номер + номинал. kind — 'certSold' (проданные) или 'certUsed' (использованные)
+function addCert(kind, num = '', sum = '') {
+  const row = el('div', 'exp cert');
+  const n = el('input', 'exp-name'); n.placeholder = 'Номер сертификата'; n.value = num; n.autocomplete = 'off';
+  const s = el('input', 'exp-sum'); s.inputMode = 'decimal'; s.placeholder = 'Номинал ₽'; s.value = sum;
+  const x = el('button', 'x', '×'); x.type = 'button';
+  x.setAttribute('aria-label', 'Удалить сертификат');
+  x.addEventListener('click', () => { row.remove(); saveDraftSoon(); });
+  row.append(n, s, x);
+  $(kind).appendChild(row);
+  return n;
+}
+const collectCerts = kind => [...document.querySelectorAll(`#${kind} .cert`)].map(r => ({
+  num: r.querySelector('.exp-name').value.trim(), sum: num(r.querySelector('.exp-sum').value),
+})).filter(c => c.num || c.sum != null);
+const collectAdvances = () => [...document.querySelectorAll('#advances .adv')].map(r => ({
+  name: r.querySelector('.exp-name').value, sum: num(r.querySelector('.exp-sum').value),
+})).filter(a => a.name || a.sum != null);
 
 /* ---------- примерная зарплата прямо в форме (точную считает сервер) ---------- */
 
@@ -1680,7 +1743,7 @@ function updatePayHints(r) {
 
 function collect() {
   const v = k => fields[k].value.trim();
-  const expenses = [...document.querySelectorAll('.exp')].map(r => ({
+  const expenses = [...document.querySelectorAll('#expenses .exp')].map(r => ({
     name: r.querySelector('.exp-name').value.trim(),
     sum: num(r.querySelector('.exp-sum').value),
   })).filter(e => e.name || e.sum != null);
@@ -1703,16 +1766,18 @@ function collect() {
     card: num(v('card')), cash: num(v('cash')), qr: num(v('qr')), incass: num(v('incass')),
     refundCash: num(v('refundCash')), refundCard: num(v('refundCard')),
     cashStart: num(v('cashStart')), cashEnd: num(v('cashEnd')),
-    expenses,
+    expenses, advances: collectAdvances(),
+    certSold: collectCerts('certSold'), certUsed: collectCerts('certUsed'),
     stock: stockEls.map(s => ({ group: s.group, name: s.name, unit: s.unit, value: num(s.el.value) })),
     order,
     orderQty: pickedQty($('chips')),   // сколько нужно — у кнопок; у вписанного вручную сервер отделит сам
   };
   const z = x => (x == null || isNaN(x)) ? 0 : x;
-  r.revenue = z(r.card) + z(r.cash) + z(r.qr);
+  r.certSoldTotal = r.certSold.reduce((a, c) => a + z(c.sum), 0);
+  r.revenue = z(r.card) + z(r.cash) + z(r.qr) + r.certSoldTotal;
   r.drinksTotal = r.drinks.reduce((a, d) => a + z(d.count), 0);
-  r.expensesTotal = expenses.reduce((a, e) => a + z(e.sum), 0);
-  r.cashExpected = z(r.cashStart) + z(r.cash) - r.expensesTotal - z(r.incass) - z(r.refundCash);
+  r.expensesTotal = expenses.concat(r.advances).reduce((a, e) => a + z(e.sum), 0);
+  r.cashExpected = z(r.cashStart) + z(r.cash) + r.certSoldTotal - r.expensesTotal - z(r.incass) - z(r.refundCash);
   r.diff = (r.cashEnd == null || isNaN(r.cashEnd)) ? null : Math.round((r.cashEnd - r.cashExpected) * 100) / 100;
   return r;
 }
@@ -1748,8 +1813,14 @@ function saveDraft() {
     staff: staffRows.map(r => ({ role: r.role.value, name: staffName(r), from: r.from.value, to: r.to.value })),
     drinks: [...document.querySelectorAll('#drinks .drink')].map(r => ({
       name: r.querySelector('select').value, count: r.querySelector('input').value })),
-    expenses: [...document.querySelectorAll('.exp')].map(r => ({
+    expenses: [...document.querySelectorAll('#expenses .exp')].map(r => ({
       name: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
+    advances: [...document.querySelectorAll('#advances .adv')].map(r => ({
+      name: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
+    certSold: [...document.querySelectorAll('#certSold .cert')].map(r => ({
+      num: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
+    certUsed: [...document.querySelectorAll('#certUsed .cert')].map(r => ({
+      num: r.querySelector('.exp-name').value, sum: r.querySelector('.exp-sum').value })),
     chips: pickedChips($('chips')),
     typed: typedByGroup($('chips')),
     qty: $('chips')._qty || {},
@@ -1773,6 +1844,9 @@ function restoreDraft() {
   }
   stockEls.forEach(s => { const v = d.stock ? byName(d.stock, s.name) : null; if (v != null) s.el.value = v; });
   (d.expenses || []).forEach(e => addExpense(e.name, e.sum));
+  (d.advances || []).forEach(a => addAdvance(a.name, a.sum));
+  (d.certSold || []).forEach(c => addCert('certSold', c.num, c.sum));
+  (d.certUsed || []).forEach(c => addCert('certUsed', c.num, c.sum));
   draftChips = new Set(d.chips || []);
   draftTyped = d.typed || {};
   draftQty = d.qty || {};
@@ -3537,12 +3611,65 @@ function renderStaffList() {
       sel.appendChild(o);
     });
     sel.addEventListener('change', () => setStaffPos(s, sel));
-    row.append(el('span', null, s.name), sel);
+    const nm = el('span', 'staff-name');
+    nm.appendChild(el('span', null, s.name));
+    const pen = el('button', 'cat-edit', '✎');
+    pen.type = 'button';
+    pen.setAttribute('aria-label', 'Изменить имя: ' + s.name);
+    pen.addEventListener('click', () => askStaffName(s));
+    nm.appendChild(pen);
+    row.append(nm, sel);
     card.appendChild(row);
   });
   if (!d.staff.length) card.appendChild(el('div', 'note', 'На листе «Сотрудники» пока никого нет.'));
   out.push(card);
   $('staffBody').replaceChildren(...out);
+}
+
+// ✎ у имени: новое имя меняется везде — в списке, старых отчётах, зарплате, выплатах, голосовании и в Google Таблице
+function askStaffName(s) {
+  haptic('light');
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, 'Изменить имя'));
+  body.appendChild(el('div', 'grp', s.name));
+  const inp = el('input');
+  inp.value = s.name; inp.maxLength = 100; inp.autocomplete = 'off';
+  inp.setAttribute('aria-label', 'Новое имя');
+  body.appendChild(inp);
+  body.appendChild(el('div', 'note', 'Имя поменяется везде: в списке сотрудников, старых отчётах, зарплате, выплатах, голосовании и в Google Таблице.'));
+  const ok = el('button', 'btn', 'Сохранить');
+  ok.type = 'button';
+  ok.addEventListener('click', async () => {
+    const name = inp.value.replace(/\s+/g, ' ').trim();
+    if (name.length < 2) return alert_('Напишите новое имя.');
+    if (name === s.name) return closeItem();
+    if (!(await confirm_(`Поменять имя везде?
+«${s.name}» → «${name}»`))) return;
+    if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+    if (busy) return;
+    setBusy(true);
+    btnPending(ok, true);
+    try {
+      staffData = await api({ action: 'staffRename', name: s.name, newName: name });
+      tabCachePut('staff', staffData);
+      closeItem();
+      renderStaffList();
+      haptic('success');
+      await alert_('Готово. Имя изменено везде. Чтобы подсказки в отчёте обновились, закройте и откройте приложение.');
+    } catch (e) {
+      btnPending(ok, false);
+      await alert_('Не получилось: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(ok, close);
+  $('itemSheet').hidden = false;
+  setTimeout(() => { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 50);
 }
 
 async function setStaffPos(s, sel) {
@@ -4091,7 +4218,12 @@ function openIdea(id) {
     const mine = c.who === me;
     const msg = el('div', 'msg' + (mine ? ' mine' : '') + (c.pending ? ' pending' : '') + (c.failed ? ' failed' : ''));
     if (!mine) msg.appendChild(el('div', 'msg-who', c.who));
-    msg.appendChild(el('div', 'msg-text', c.text));
+    if (c.text) msg.appendChild(el('div', 'msg-text', c.text));
+    if (c.localPhotos && c.localPhotos.length) {
+      const pw = el('div', 'msg-photos');
+      c.localPhotos.forEach(src => { const im = el('img'); im.src = src; im.alt = 'Фото'; pw.appendChild(im); });
+      msg.appendChild(pw);
+    } else if (c.photos) msg.appendChild(ideaPhotoLoader(id, c));
     const meta = el('div', 'msg-meta', c.failed ? 'не отправлено' : c.pending ? 'отправляется…'
       : (c.date || '').slice(0, 16) + (c.edited ? ' · изменено' : ''));
     msg.appendChild(meta);
@@ -4129,7 +4261,14 @@ function openIdea(id) {
   send.setAttribute('aria-label', 'Отправить');
   send.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>';
   send.addEventListener('click', () => editing ? saveIdeaEdit(id, editing, ta) : sendIdeaComment(id, ta));
-  bar.append(ta, send);
+  const attach = el('button', 'chat-attach');
+  attach.type = 'button';
+  attach.setAttribute('aria-label', 'Приложить фото');
+  attach.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6H10v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6z"/></svg>';
+  attach.addEventListener('click', () => $('ideaPhotoInput').click());
+  if (editing) attach.hidden = true;
+  if (!editing) { const pl = ideaPhotoList(id); if (pl.length) body.appendChild(ideaPhotoStrip(id, pl)); }
+  bar.append(attach, ta, send);
   body.appendChild(bar);
 
   const btns = el('div', 'chat-btns');
@@ -4151,6 +4290,60 @@ function openIdea(id) {
     chat.scrollTop = chat.scrollHeight;
     if (editing) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }, 0);
+}
+
+// Фото к комментарию в чате: черновик на каждое предложение (до 3 фото), мини-плитки над строкой ввода
+const IDEA_PHOTO_MAX = 3;
+const ideaPhotoDraft = {};
+function ideaPhotoList(id) { return ideaPhotoDraft[id] || (ideaPhotoDraft[id] = []); }
+function ideaPhotoStrip(id, list) {
+  const box = el('div', 'chat-photos');
+  list.forEach((src, i) => {
+    const d = el('div', 'ph');
+    const img = el('img'); img.src = src; img.alt = `Фото ${i + 1}`;
+    const x = el('button', 'del', '×'); x.type = 'button';
+    x.setAttribute('aria-label', 'Убрать фото');
+    x.addEventListener('click', () => { list.splice(i, 1); openIdea(id); });
+    d.append(img, x);
+    box.appendChild(d);
+  });
+  return box;
+}
+$('ideaPhotoInput').addEventListener('change', async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  const id = ideaOpenId;
+  if (!id) return;
+  const list = ideaPhotoList(id);
+  for (const f of files) {
+    if (list.length >= IDEA_PHOTO_MAX) { await alert_(`Можно не больше ${IDEA_PHOTO_MAX} фото.`); break; }
+    try { list.push(await shrinkImage(f)); } catch (err) { await alert_(err.message); }
+  }
+  if (ideaOpenId === id) openIdea(id);
+});
+// Фото в сообщении грузятся по нажатию — через сервер
+function ideaPhotoLoader(id, c) {
+  const wrap = el('div', 'msg-photos');
+  const btn = el('button', 'msg-ph-btn', `📷 Фото (${c.photos})`);
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Загружаю фото…';
+    try {
+      for (let n = 0; n < c.photos; n++) {
+        const res = await fetch(`${API_URL}?action=ideaPhoto&id=${encodeURIComponent(id)}&cid=${encodeURIComponent(c.cid || '')}&n=${n}&initData=${encodeURIComponent(initData)}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+        const img = el('img'); img.src = data.data; img.alt = `Фото ${n + 1}`;
+        img.addEventListener('click', () => openPhotoView(img.src));
+        wrap.appendChild(img);
+      }
+      btn.remove();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = `📷 Фото (${c.photos})`;
+      alert_('Не удалось загрузить фото: ' + e.message);
+    }
+  });
+  wrap.appendChild(btn);
+  return wrap;
 }
 
 // Долгое нажатие (~0,5 с) без сдвига пальца
@@ -4219,24 +4412,27 @@ function setIdeaComments(id, comments) {
 
 async function sendIdeaComment(id, ta) {
   const text = ta.value.trim();
-  if (!text) return;
+  const photos = ideaPhotoList(id).slice();
+  if (!text && !photos.length) return;
   if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
   const x = ideaById(id);
   if (!x) return;
   // Сразу показываем — не ждём сервер
-  const temp = { who: myName(), text, date: nowStamp(), pending: true };
+  const temp = { who: myName(), text, date: nowStamp(), pending: true, localPhotos: photos };
   x.comments = (x.comments || []).concat([temp]);
   delete ideaCommentDraft[id];
+  ideaPhotoDraft[id] = [];
   haptic('light');
   openIdea(id);
   try {
-    const data = await api({ action: 'ideaComment', id, text });
+    const data = await api({ action: 'ideaComment', id, text, photos });
     setIdeaComments(id, data.comments);
     haptic('success');
   } catch (e) {
     temp.pending = false; temp.failed = true;
     if (ideaOpenId === id) openIdea(id);
     ideaCommentDraft[id] = text;
+    ideaPhotoDraft[id] = photos;
     await alert_('Комментарий не отправился: ' + e.message);
     const y = ideaById(id);
     if (y) y.comments = (y.comments || []).filter(c => c !== temp);
@@ -4734,6 +4930,10 @@ function startEdit(ed) {
 
   $('expenses').textContent = '';
   (r.expenses || []).forEach(e => addExpense(e.name, e.sum == null ? '' : e.sum));
+  $('advances').textContent = ''; $('certSold').textContent = ''; $('certUsed').textContent = '';
+  (r.advances || []).forEach(a => addAdvance(a.name, a.sum == null ? '' : a.sum));
+  (r.certSold || []).forEach(c => addCert('certSold', c.num, c.sum == null ? '' : c.sum));
+  (r.certUsed || []).forEach(c => addCert('certUsed', c.num, c.sum == null ? '' : c.sum));
 
   const stock = {};
   (r.stock || []).forEach(s => { stock[s.name] = s.value; });
