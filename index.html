@@ -286,7 +286,10 @@
     background: transparent; color: var(--hint);
   }
   .seg-btn[aria-pressed="true"] { background: var(--dark); color: #fff; }
-  .tabs { margin-bottom: 4px; }
+  /* Вкладки всегда сверху: при прокрутке не уходят под шапку Телеграма. Первая тень — полоса цвета фона над и по бокам,
+     чтобы прокручиваемое содержимое не просвечивало в зазоре; вторая — лёгкая тень снизу. */
+  .tabs { margin-bottom: 4px; position: sticky; top: 6px; z-index: 30;
+    box-shadow: 0 -6px 0 6px var(--bg), 0 4px 12px rgba(0, 0, 0, .06); }
   /* Список закупки: чей — снабженца, управляющего или не разобрано */
   .who-seg { grid-template-columns: repeat(var(--n, 2), 1fr); margin-bottom: 10px; }
   .who-seg .seg-btn { padding: 10px 4px; font-size: 16px; line-height: 1.25; }
@@ -935,7 +938,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.51';
+const APP_VERSION = '2026-11-05.52';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
