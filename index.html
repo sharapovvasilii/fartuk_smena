@@ -135,7 +135,7 @@
   .srow { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 2px 0; }
   .srow > span { flex: 1; min-width: 0; }
   .srow input { width: 76px; text-align: right; }
-  .srow .stock-pen { font-size: 18px; padding: 0 8px; align-self: stretch; }
+  .srow .stock-pen { align-self: center; }
   .stock-add { display: block; margin-top: 8px; padding: 8px 0; }
   /* Заголовки категорий в товарном учёте — той же высоты, что строки товаров: расстояния одинаковые */
   #stock h3, #stockView h3 { display: flex; align-items: center; min-height: 40px; margin: 0; padding: 2px 0; }
@@ -192,7 +192,10 @@
     -webkit-touch-callout: none; }
   .chip.del-ready { background: var(--err) !important; }
   .swipe-hint { font-size: 12px; margin: 0 0 4px; }
-  .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 22px; line-height: 1; padding: 0 12px; }
+  /* Карандаш ✎ — везде одного размера, как во вкладке «Сотрудники» */
+  .cat-edit { background: none; border: 0; color: var(--accent); font: inherit; font-size: 22px; line-height: 1; padding: 0;
+    flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+  .tool.tool-pen { background: none; color: var(--accent); font-size: 22px; width: 40px; height: 40px; }
   .cgroup summary { align-items: center; }
   .cat-tools { display: flex; justify-content: flex-end; }
   .merge-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
@@ -275,7 +278,7 @@
   .store .addr-row .btn { width: auto; padding: 8px 12px; font-size: 14px; margin: 0; }
   .store .st-head { display: flex; justify-content: space-between; align-items: center; }
   .store .st-name { display: flex; align-items: center; }
-  .store .st-name .cat-edit { font-size: 22px; padding: 0 10px; }
+  .store .st-name .cat-edit { font-size: 22px; }
   .store-add { display: flex; gap: 6px; margin: 8px 0; }
   .store-add select { flex: 1; width: auto; text-align: left; text-align-last: left; }
   .store-add .btn { width: auto; padding: 8px 14px; font-size: 14px; margin: 0; }
@@ -331,6 +334,7 @@
   .drink-sale { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line, #eee); }
   .drink-calc { font-size: 14px; color: var(--hint); padding: 4px 0; }
   .drink-calc b { color: var(--text, #000); }
+  #drinkLeft[readonly] { background: none; pointer-events: none; }   /* администраторам — только посчитанный остаток */
   /* Калькулятор з/п */
   .calc-res .big { margin: 2px 0 6px; }
   .temp-list div { padding: 4px 0; font-size: 14px; }
@@ -720,7 +724,7 @@
     <label class="row"><span>Продано за смену, бут.</span>
       <input class="num" id="drinkSold" inputmode="numeric" autocomplete="off" placeholder="-"></label>
     <div class="drink-calc" id="drinkCalc"></div>
-    <label class="row"><span>Остаток, бут.<small>считается сам; пересчитали — впишите</small></span>
+    <label class="row"><span>Остаток, бут.<small id="drinkLeftNote">считается сам; пересчитали — впишите</small></span>
       <input class="num" id="drinkLeft" inputmode="numeric" autocomplete="off" placeholder="-"></label>
   </div>
 </div>
@@ -987,7 +991,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.53';
+const APP_VERSION = '2026-11-05.54';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1999,6 +2003,11 @@ function drinkCalcText(r) {
   box.append(`Было ${drinkPrev == null ? '—' : drinkPrev} + сделали ${z(r.drinksTotal)} − продали ${z(r.drinkSold)} = `,
     el('b', null, `остаток ${left}`));
   fields.drinkLeft.placeholder = String(left);
+  // Вписать остаток вручную могут только управляющий и владелец; администраторам — только посчитанный
+  const can = canEditCats();
+  fields.drinkLeft.readOnly = !can;
+  if (!can && fields.drinkLeft.value !== '') fields.drinkLeft.value = '';
+  $('drinkLeftNote').textContent = can ? 'считается сам; пересчитали — впишите' : 'считается сам';
 }
 
 /* ---------- черновик ---------- */
@@ -2791,7 +2800,7 @@ function renderPurchase() {
     tools.append(
       toolBtn('↑', 'Поднять отдел', i === 0 || !saved, () => moveSection(s.id, -1)),
       toolBtn('↓', 'Опустить отдел', i === sections.length - 1 || !saved, () => moveSection(s.id, 1)),
-      toolBtn('✎', 'Переименовать отдел', !saved, () => renameSection(s, title)),
+      Object.assign(toolBtn('✎', 'Переименовать отдел', !saved, () => renameSection(s, title)), { className: 'tool tool-pen' }),
     );
     if (s.id !== 'other') tools.append(toolBtn('×', 'Удалить отдел', !saved, () => deleteSection(s)));
     head.append(title, el('div', 'psec-count', items.length ? String(items.length) : ''), tools);
