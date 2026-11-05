@@ -4,13 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Фартук · Смена</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Шрифт Medeo Sans лежит рядом с index.html в папке fonts (лицензия SIL OFL) -->
+<link rel="preload" href="fonts/MedeoSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/MedeoSans-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/MedeoSans-Bold.woff2" as="font" type="font/woff2" crossorigin>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <!-- Перетаскивание товаров между отделами (если не загрузится — список всё равно работает) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <style>
+  @font-face { font-family: "Medeo Sans"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/MedeoSans-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "Medeo Sans"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/MedeoSans-Medium.woff2") format("woff2"); }
+  @font-face { font-family: "Medeo Sans"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/MedeoSans-SemiBold.woff2") format("woff2"); }
+  @font-face { font-family: "Medeo Sans"; font-weight: 700; font-style: normal; font-display: swap; src: url("fonts/MedeoSans-Bold.woff2") format("woff2"); }
+  @font-face { font-family: "Medeo Sans"; font-weight: 800; font-style: normal; font-display: swap; src: url("fonts/MedeoSans-ExtraBold.woff2") format("woff2"); }
   /* Фирменный стиль: всегда светлая тема, оранжевый акцент */
   :root {
     --bg: #eeefec;
@@ -33,7 +39,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.35 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.35 "Medeo Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: 14px 14px 100px;
     -webkit-tap-highlight-color: transparent;
   }
@@ -212,7 +218,7 @@
     background: var(--field); border: 0; padding: 0;
   }
   .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .ph.add { font: 300 26px/1 Inter, sans-serif; color: #8a8a8a; cursor: pointer; }
+  .ph.add { font: 400 26px/1 "Medeo Sans", sans-serif; color: #8a8a8a; cursor: pointer; }
   .ph .del {
     position: absolute; top: 2px; right: 2px; width: 32px; height: 32px; border-radius: 50%;
     border: 0; background: rgba(255, 255, 255, .9); color: #333; font-size: 18px; line-height: 32px; padding: 0;
@@ -297,6 +303,7 @@
   .pay-unit { border-top: 1px solid #f0f0ef; padding: 8px 0; }
   .pay-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
   .pay-line small { display: block; color: var(--hint); font-size: 12px; }
+  .pay-sum { font-weight: 700; }
   .pay-act { text-align: right; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
   .pay-btn { border: 0; border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 600;
     background: var(--accent); color: #fff; max-width: 160px; text-align: center; }
@@ -894,7 +901,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.40';
+const APP_VERSION = '2026-11-05.41';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -3312,7 +3319,8 @@ function renderPay(d) {
       const box = el('div', 'pay-unit');
       const line = el('div', 'pay-line');
       const info = el('div');
-      info.appendChild(el('div', null, `${label} · ${money(u.total)}`));
+      info.appendChild(el('div', null, label));
+      info.appendChild(el('div', 'pay-sum', money(u.total)));
       const parts = [];
       if (u.base) parts.push(`часы ${fmt(u.base)}`);
       if (u.bonus) parts.push(`премия ${fmt(u.bonus)}`);
@@ -3320,9 +3328,10 @@ function renderPay(d) {
       if (u.gis) parts.push(`2ГИС ${fmt(u.gis)}`);
       if (u.drinks) parts.push(`морсы ${fmt(u.drinks)}`);
       let small = parts.join(' + ');
-      if (isMonth) small = `выплата ${u.payday}-го числа` + (u.paid ? ` · выдано ${fmt(u.paid)}` : '');
-      if (u.key.startsWith('неделя:')) small += ` · ${u.shifts.length} ${pl(u.shifts.length, 'смена', 'смены', 'смен')}`;
+      if (isMonth) small = `выплата ${u.payday}-го числа`;
       if (small) info.appendChild(el('small', null, small));
+      if (isMonth && u.paid) info.appendChild(el('small', null, `выдано ${fmt(u.paid)} ₽`));
+      if (u.key.startsWith('неделя:')) info.appendChild(el('small', null, `${u.shifts.length} ${pl(u.shifts.length, 'смена', 'смены', 'смен')}`));
       // Когда выдавали: аванс 20 000 — 02.11.2026
       // Был аванс — следующая выплата это «остаток», а не «доплата»
       const hadAdvance = (u.log || []).some(p => /^аванс/.test(p.label));
