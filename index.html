@@ -135,6 +135,8 @@
   .srow { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 2px 0; }
   .srow > span { flex: 1; min-width: 0; }
   .srow input { width: 76px; text-align: right; }
+  .srow .stock-pen { font-size: 18px; padding: 0 8px; align-self: stretch; }
+  .stock-add { display: block; margin-top: 8px; padding: 8px 0; }
   /* Заголовки категорий в товарном учёте — той же высоты, что строки товаров: расстояния одинаковые */
   #stock h3, #stockView h3 { display: flex; align-items: center; min-height: 40px; margin: 0; padding: 2px 0; }
 
@@ -326,6 +328,19 @@
   .pay-shifts { font-size: 14px; color: #555; padding: 6px 0 0; }
   .pay-shifts div { padding: 2px 0; }
   .adv { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+  .drink-sale { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line, #eee); }
+  .drink-calc { font-size: 14px; color: var(--hint); padding: 4px 0; }
+  .drink-calc b { color: var(--text, #000); }
+  /* Калькулятор з/п */
+  .calc-res .big { margin: 2px 0 6px; }
+  .temp-list div { padding: 4px 0; font-size: 14px; }
+  .temp-list small { display: block; color: var(--hint); font-size: 12px; }
+  /* Опоздание и штраф (вкладка «Зарплата») */
+  .late { background: #fff4e5; border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 14px; }
+  .late b { color: var(--warn); }
+  .late small { display: block; color: var(--hint); font-size: 12px; margin-top: 2px; }
+  .late .adv { margin-top: 6px; align-items: center; }
+  .pay-fine { color: var(--warn); }
   .adv input { width: 100px; text-align: right; padding: 6px 8px; font-size: 14px; }
   .tag { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent); background: #fdeee8;
     border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
@@ -602,6 +617,7 @@
   <button type="button" class="seg-btn" data-tab="bills" hidden>Счета</button>
   <button type="button" class="seg-btn" data-tab="vote" hidden>Голосование</button>
   <button type="button" class="seg-btn" data-tab="mypay" hidden>Моя з/п</button>
+  <button type="button" class="seg-btn" data-tab="calc" hidden>Калькулятор з/п</button>
   <button type="button" class="seg-btn" data-tab="buy" hidden>Закупка</button>
   <button type="button" class="seg-btn" data-tab="inv" hidden>Инвентаризация</button>
   <button type="button" class="seg-btn" data-tab="repair" hidden>Улучшения</button>
@@ -697,6 +713,15 @@
     <div class="ph-head"><b>Фото морсов и лимонадов</b><small id="drinkPhotoNote">Сделайте фото: чтобы было видно все бутылки</small></div>
     <div class="photos" id="drinkPhotos"></div>
     <input type="file" id="drinkPhotoInput" accept="image/*" multiple hidden>
+  </div>
+  <div class="drink-sale">
+    <h3>Продажа морсов</h3>
+    <div class="note" style="font-size:12px;margin:0 0 4px">+ 10 ₽ за проданную бутылку администраторам смены (двое — поровну).</div>
+    <label class="row"><span>Продано за смену, бут.</span>
+      <input class="num" id="drinkSold" inputmode="numeric" autocomplete="off" placeholder="-"></label>
+    <div class="drink-calc" id="drinkCalc"></div>
+    <label class="row"><span>Остаток, бут.<small>считается сам; пересчитали — впишите</small></span>
+      <input class="num" id="drinkLeft" inputmode="numeric" autocomplete="off" placeholder="-"></label>
   </div>
 </div>
 
@@ -877,6 +902,28 @@
   <div id="ownerBody"></div>
 </main>
 
+<!-- Калькулятор з/п: приходящим сотрудникам выдают сразу (администраторы, управляющий, владелец) -->
+<main id="calcScreen" hidden>
+  <header>
+    <h1>Калькулятор з/п</h1>
+    <div class="sub">Для приходящих сотрудников — зарплата выдаётся сразу</div>
+  </header>
+  <div class="card">
+    <label class="row"><span>Имя</span><input id="calcName" maxlength="100" autocomplete="off" placeholder="Фамилия и имя"></label>
+    <label class="row"><span>Должность</span><select id="calcRole"></select></label>
+    <label class="row"><span>Дата</span><input id="calcDate" type="date"></label>
+    <label class="row"><span>Пришёл</span><input id="calcFrom" type="time" value="10:00"></label>
+    <label class="row"><span>Ушёл</span><input id="calcTo" type="time" value="21:00"></label>
+    <label class="row"><span>Выручка за смену<small>для премии; можно не писать</small></span>
+      <input class="num" id="calcRev" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+  </div>
+  <div class="card calc-res" id="calcRes"></div>
+  <button type="button" class="btn" id="calcPay">Выдать з/п</button>
+  <p class="note">Сумма считается как у всех: часы × ставка (приход вверх до часа, уход вниз) + премия от выручки по должности.
+    После «Выдать з/п» выплата записывается на лист «Выплаты». Если этого человека вписали и в отчёт — во вкладке «Зарплата»
+    его смена к выплате не попадёт.</p>
+</main>
+
 <!-- Моя з/п: своя невыплаченная зарплата (все, кроме снабженца) -->
 <main id="myPayScreen" hidden>
   <header>
@@ -929,7 +976,9 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbynvdVl8WfDOLyTa6tnH2QR
 const LOADING_ART = 'loading.png';
 
 // Время смены по умолчанию
-const SHIFT_FROM = '10:00';
+const SHIFT_FROM = '09:30';   // все приходят за 30 минут до смены (смена с 10:00); позже 9:40 — опоздание
+const SHIFT_FROM_BY_ROLE = { 'Пом. пиццмейкера': '09:00' };   // помощник пиццмейкера — к 9:00
+const fromOf = role => SHIFT_FROM_BY_ROLE[role] || SHIFT_FROM;
 const SHIFT_TO = '21:00';
 
 // Кто обычно на смене — такие строки появляются в новом отчёте
@@ -938,7 +987,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.52';
+const APP_VERSION = '2026-11-05.53';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -1214,7 +1263,7 @@ function addStaffRow(d = {}) {
 
   const line = el('div', 's-line');
   const pair = el('div', 'pair');
-  const from = el('input'); from.type = 'time'; from.value = d.from || SHIFT_FROM;
+  const from = el('input'); from.type = 'time'; from.value = d.from || fromOf(role.value);
   const to = el('input'); to.type = 'time'; to.value = d.to || SHIFT_TO;
   from.setAttribute('aria-label', 'Пришёл'); to.setAttribute('aria-label', 'Ушёл');
   pair.append(from, document.createTextNode('-'), to);
@@ -1232,7 +1281,13 @@ function addStaffRow(d = {}) {
   if (d.name) setSelectValue(name, other, d.name);
   other.hidden = name.value !== '__other';
 
-  role.addEventListener('change', () => { fillPeople(name, 'Кто', peopleGroups(role.value)); onStaffChange(); });
+  let roleWas = role.value;
+  role.addEventListener('change', () => {
+    // Время прихода не трогали (стоит по умолчанию) — ставим время новой должности
+    if (from.value === fromOf(roleWas) || from.value === '10:00') from.value = fromOf(role.value);
+    roleWas = role.value;
+    fillPeople(name, 'Кто', peopleGroups(role.value)); onStaffChange();
+  });
   name.addEventListener('change', () => { other.hidden = name.value !== '__other'; if (!other.hidden) other.focus(); refreshNameHint(r); onStaffChange(); });
   other.addEventListener('input', () => { refreshNameHint(r); onStaffChange(); });
   other.addEventListener('change', () => checkTypedName(r));
@@ -1319,18 +1374,95 @@ function renderStock(list) {
   box.textContent = '';
   $('stockSection').hidden = !list.length;
   let group = null;
-  list.forEach(({ group: g, name, unit }) => {
+  const edit = canEditCats();
+  list.forEach(({ group: g, name, unit }, i) => {
     if (g !== group) { box.appendChild(el('h3', null, g)); group = g; }
     const row = el('label', 'srow');
     const span = el('span', null, name + ' / ' + (unit || 'шт'));
     const hint = el('small'); span.appendChild(hint);
     const input = el('input');
     input.inputMode = 'decimal'; input.autocomplete = 'off'; input.placeholder = '-';
-    row.append(span, input);
+    input.id = 'stk' + i; row.htmlFor = input.id;   // нажатие на название — в поле, а не на ✎
+    row.append(span);
+    if (edit) {
+      const pen = el('button', 'cat-edit stock-pen', '✎');
+      pen.type = 'button'; pen.setAttribute('aria-label', `Изменить товар ${name}`);
+      pen.addEventListener('click', e => { e.preventDefault(); openStockEdit(name, unit || 'шт', g); });
+      row.appendChild(pen);
+    }
+    row.appendChild(input);
     box.appendChild(row);
     if (old[name]) { input.value = old[name].value; hint.textContent = old[name].hint; }
     stockEls.push({ group: g, name, unit: unit || 'шт', el: input, hint });
   });
+  if (edit) {
+    const add = el('button', 'link stock-add', '+ Добавить товар в учёт');
+    add.type = 'button';
+    add.addEventListener('click', () => openStockEdit('', 'шт', group || ''));
+    box.appendChild(add);
+  }
+}
+
+// Товарный учёт (владелец/управляющий): изменить название и в чём считаем, перенести, убрать из учёта
+// или добавить новый товар (name пустое). Кнопка в заявке при «Убрать из учёта» остаётся.
+function openStockEdit(item, curUnit, curGroup) {
+  haptic('light');
+  const isNew = !item;
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, isNew ? 'Добавить товар в учёт' : item));
+  body.appendChild(el('div', 'grp', isNew
+    ? 'Товар появится в товарном учёте отчёта и кнопкой в заявке'
+    : 'Изменить товар в товарном учёте и заявке'));
+  const name = el('input', 'full');
+  name.value = item; name.maxLength = 60; name.placeholder = 'Название товара';
+  name.setAttribute('aria-label', 'Название товара');
+  const unit = el('select', 'full');
+  unit.setAttribute('aria-label', 'В чём считаем');
+  unit.style.textAlign = 'left'; unit.style.textAlignLast = 'left';
+  UNITS.concat(UNITS.includes(curUnit) ? [] : [curUnit]).forEach(u => unit.add(new Option(u, u)));
+  unit.value = curUnit;
+  const group = el('select', 'full');
+  group.setAttribute('aria-label', 'Категория');
+  group.style.textAlign = 'left'; group.style.textAlignLast = 'left';
+  const groups = [...new Set((config.stock || []).map(x => x.group).concat((config.catalog || []).map(x => x.group)).filter(Boolean))];
+  if (curGroup && !groups.includes(curGroup)) groups.unshift(curGroup);
+  groups.forEach(g => group.add(new Option(g, g)));
+  if (curGroup) group.value = curGroup;
+  body.append(el('div', 'note', 'Название'), name, el('div', 'note', 'В чём считаем (шт, кг, кор…)'), unit,
+    el('div', 'note', 'Категория'), group);
+  const save = el('button', 'btn', isNew ? 'Добавить' : 'Сохранить');
+  save.type = 'button';
+  save.addEventListener('click', () => {
+    const newName = name.value.replace(/\s+/g, ' ').trim();
+    if (newName.length < 2) return alert_('Напишите название товара.');
+    if (isNew) {
+      if ((config.stock || []).some(x => x.name.toLowerCase() === newName.toLowerCase())) return alert_('Такой товар уже есть в учёте.');
+      const known = (config.catalog || []).find(x => x.name.toLowerCase() === newName.toLowerCase());
+      return catPost({ action: 'stockAdd', name: known ? known.name : newName, unit: unit.value,
+        group: known && known.group === group.value ? '' : group.value });
+    }
+    const moved = group.value && group.value !== curGroup;
+    if (newName === item && unit.value === curUnit && !moved) return closeItem();
+    catPost({ action: 'itemEdit', name: item, newName, unit: unit.value, group: moved ? group.value : '' });
+  });
+  body.appendChild(save);
+  if (!isNew) {
+    const off = el('button', 'btn btn-light', 'Убрать из учёта');
+    off.type = 'button';
+    off.style.color = 'var(--err)';
+    off.addEventListener('click', async () => {
+      if (!(await confirm_(`Убрать «${item}» из товарного учёта? Кнопка в заявке останется.`))) return;
+      catPost({ action: 'stockOff', name: item });
+    });
+    body.appendChild(off);
+  }
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.appendChild(close);
+  $('itemSheet').hidden = false;
+  if (isNew) setTimeout(() => name.focus(), 50);
 }
 
 /* ---------- кнопки заявки: товары с листа «Товары», по разделам ---------- */
@@ -1341,7 +1473,7 @@ let draftQty = {};     // { товар: { n: '5', u: 'кг' } } — скольк
 const OTHER_GROUP = 'Другое';
 
 // Категории меняют владелец и управляющий
-function canEditCats() { return shownRole === 'owner'; }
+function canEditCats() { return (whoRole || shownRole) === 'owner'; }
 
 // Кнопки по категориям, под каждой — поле «чего нет в кнопках». В отчёте всё сохраняется в черновик.
 function renderChips(box, inReport) {
@@ -1670,7 +1802,7 @@ function moneyRow(parent, key, label, hintId) {
 }
 
 function build() {
-  ['date', 'senior', 'reviews', 'gis2', 'checks', 'staffFeedback'].forEach(k => { fields[k] = $(k); });
+  ['date', 'senior', 'reviews', 'gis2', 'checks', 'staffFeedback', 'drinkSold', 'drinkLeft'].forEach(k => { fields[k] = $(k); });
 
   moneyRow($('moneyRows'), 'card', 'Безнал');
   moneyRow($('moneyRows'), 'cash', 'Наличные');
@@ -1774,6 +1906,8 @@ function updatePayHints(r) {
   const drinks = {};
   r.drinks.forEach(d => { if (d.name && d.count > 0) drinks[d.name] = (drinks[d.name] || 0) + d.count; });
   const gis = r.gis2 > 0 ? r.gis2 : 0;
+  const z0 = x => (x == null || isNaN(x)) ? 0 : x;
+  const admins = new Set(staffRows.filter(row => roleInfo(row.role.value).admin && staffName(row)).map(staffName)).size;
   staffRows.forEach(row => {
     const name = staffName(row);
     const h = paidHours(row.from.value, row.to.value);
@@ -1782,7 +1916,8 @@ function updatePayHints(r) {
     const info = roleInfo(row.role.value);
     const total = h * P.hourRate + revenueBonus(r.revenue, !!info.pizza, P) +
       (name && fields.senior.value === name ? P.seniorBonus : 0) +
-      (info.admin ? gis * P.gisBonus : 0) + (name && drinks[name] ? drinks[name] * P.drinkBonus : 0);
+      (info.admin ? gis * P.gisBonus : 0) + (name && drinks[name] ? drinks[name] * P.drinkBonus : 0) +
+      (info.admin && admins ? Math.round(z0(r.drinkSold) * (P.drinkSaleBonus || 0) / admins * 100) / 100 : 0);
     row.pay.append(`${h} ч · `, el('b', null, `≈ ${fmt(total)} ₽`));
     if (name && fields.senior.value === name) row.pay.append(' ', el('span', 'senior-tag', '⭐'));
   });
@@ -1811,6 +1946,7 @@ function collect() {
     gis2: num(v('gis2')),
     checks: num(v('checks')),
     drinks: collectDrinks(),
+    drinkSold: num(v('drinkSold')), drinkLeft: v('drinkLeft') === '' ? null : num(v('drinkLeft')),
     orderTyped, typedGroups,
     card: num(v('card')), cash: num(v('cash')), qr: num(v('qr')), incass: num(v('incass')),
     refundCash: num(v('refundCash')), refundCard: num(v('refundCard')),
@@ -1849,6 +1985,20 @@ function recalc() {
     st.textContent = `⚠️ Не сходится на ${r.diff > 0 ? '+' : ''}${fmt(r.diff)} ₽ (должно быть ${fmt(r.cashExpected)} ₽)`;
   }
   updatePayHints(r);
+  drinkCalcText(r);
+}
+
+// Морсы: было (остаток прошлого отчёта) + сделали − продали = остаток. Пустое поле «Остаток» — посчитается само.
+let drinkPrev = null;   // остаток по прошлому отчёту (при исправлении — тот, что был до него)
+function drinkCalcText(r) {
+  const box = $('drinkCalc');
+  if (!box || !fields.drinkLeft) return;
+  const z = x => (x == null || isNaN(x)) ? 0 : x;
+  const left = Math.max(0, z(drinkPrev) + z(r.drinksTotal) - z(r.drinkSold));
+  box.textContent = '';
+  box.append(`Было ${drinkPrev == null ? '—' : drinkPrev} + сделали ${z(r.drinksTotal)} − продали ${z(r.drinkSold)} = `,
+    el('b', null, `остаток ${left}`));
+  fields.drinkLeft.placeholder = String(left);
 }
 
 /* ---------- черновик ---------- */
@@ -1990,6 +2140,7 @@ function showScreen(name) {
   $('ownerScreen').hidden = name !== 'owner';
   $('staffScreen').hidden = name !== 'staff';
   $('myPayScreen').hidden = name !== 'mypay';
+  $('calcScreen').hidden = name !== 'calc';
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
   try {
@@ -2127,6 +2278,8 @@ function showApp(data, fresh) {
   const firstShow = shownRole !== data.role;
   if (firstShow) showForm(true);
   applyConfig(data.config);
+  // Роль стала известна — ✎ у товарного учёта и кнопок заявки (владелец/управляющий)
+  if (firstShow && data.role === 'owner' && config.stock) { renderStock(config.stock); renderChips($('chips'), true); }
   applyMyName(data.name);
   if (fresh) {   // это меняется часто — берём только свежее с сервера
     applyLast(data.last);
@@ -2184,16 +2337,17 @@ async function init() {
 /* ---------- вкладки: сотрудник — Отчёт/Заявка, владелец и управляющий — всё ---------- */
 
 const TAB_SCREENS = { report: 'form', order: 'order', bills: 'bills', vote: 'vote', buy: 'buyer', inv: 'inv', repair: 'repair',
-  rev: 'revenue', pay: 'salary', own: 'owner', staff: 'staff', mypay: 'mypay' };
+  rev: 'revenue', pay: 'salary', own: 'owner', staff: 'staff', mypay: 'mypay', calc: 'calc' };
 let curTab = 'report';
 
 // canReport — вкладка «Отчёт» только у администраторов, владельца и управляющего
 function setupTabs(role, boss, canReport) {
   let show = role === 'owner'
-    ? ['report', 'order', 'bills', 'vote', 'mypay', 'buy', 'inv', 'repair', 'rev', 'pay'].concat(boss ? ['staff', 'own'] : [])
+    ? ['report', 'order', 'bills', 'vote', 'mypay', 'buy', 'inv', 'repair', 'rev', 'pay', 'calc'].concat(boss ? ['staff', 'own'] : [])
     : role === 'buyer' ? ['buy', 'inv', 'repair']
-    : ['report', 'order', 'bills', 'vote', 'mypay', 'repair'];
-  if (canReport === false) show = show.filter(t => t !== 'report');
+    : ['report', 'order', 'bills', 'vote', 'mypay', 'calc', 'repair'];
+  // Отчёт и калькулятор з/п — только администраторы, владелец и управляющий
+  if (canReport === false) show = show.filter(t => t !== 'report' && t !== 'calc');
   if (!show.includes(curTab)) { curTab = show[0]; showScreen(TAB_SCREENS[curTab]); }
   const bar = $('tabs');
   bar.querySelectorAll('.seg-btn').forEach(b => {
@@ -2234,6 +2388,7 @@ function setTab(tab) {
   if (tab === 'own') loadOwner();
   if (tab === 'staff') loadStaffList();
   if (tab === 'mypay') loadMyPay();
+  if (tab === 'calc') openCalc();
   if (tab === 'order') renderChips($('orderChips'), false);
   if (tab === 'buy') refreshPurchase();
   if (tab === 'rev' && !revLoaded) pickPreset('week');
@@ -2293,7 +2448,7 @@ const WHO = {
     hint: 'Нажмите на товар — покажу магазин и телефон. Зажмите, чтобы перетащить в другой отдел' },
   '': { tab: 'Не разобрано', need: 'Кому отдать', done: 'Куплено', doneBtn: '✓ Куплено',
     empty: 'Все товары разобраны', info: 'Не разобрано',
-    hint: 'Нажмите на товар и выберите: снабженцу или управляющему. В следующий раз он попадёт туда сам' },
+    hint: 'Раздают снабженец и управляющий: нажмите на товар и выберите, кому. В следующий раз он попадёт туда сам' },
 };
 let curWho = null;
 let whoRole = null;   // роль из ответа сервера — известна раньше, чем shownRole
@@ -2489,11 +2644,39 @@ function storeOfSection(name) {
     stores.find(s => { const m = normStore(s.name); return m && (m.indexOf(n) === 0 || n.indexOf(m) === 0); }) || null;
 }
 
+// ✎ у названия в карточке закупки — поле с названием и «Сохранить» (меняется и в списке, и на листе «Товары»)
+function renameItemRow(x, title) {
+  const row = el('div', 'addr-row');
+  const inp = el('input');
+  inp.value = x.name; inp.maxLength = 60; inp.placeholder = 'Название товара';
+  inp.setAttribute('aria-label', 'Новое название товара');
+  const ok = el('button', 'btn', 'Сохранить');
+  ok.type = 'button';
+  ok.addEventListener('click', async () => {
+    const name = inp.value.replace(/\s+/g, ' ').trim();
+    if (name.length < 2) return alert_('Напишите название товара.');
+    if (name === x.name) return row.replaceWith(title);
+    await purchaseOp({ op: 'rename', id: x.id, name });
+    const y = purchase.find(i => i.id === x.id) || purchase.find(i => i.name === name);
+    if (y) openItem(y); else closeItem();
+  });
+  row.append(inp, ok);
+  title.replaceWith(row);
+  setTimeout(() => inp.focus(), 50);
+}
+
 function openItem(x) {
   haptic('light');
   const body = $('itemSheetBody');
   body.textContent = '';
-  body.appendChild(el('h2', null, x.name));
+  const title = el('h2', 'item-title', x.name);
+  if (x.id !== 'new') {
+    const pen = el('button', 'cat-edit', '✎');
+    pen.type = 'button'; pen.setAttribute('aria-label', `Переименовать товар ${x.name}`);
+    pen.addEventListener('click', () => renameItemRow(x, title));
+    title.appendChild(pen);
+  }
+  body.appendChild(title);
   body.appendChild(el('div', 'grp', [x.group, x.source].filter(Boolean).join(' · ')));
   if (x.qty) body.appendChild(el('div', 'repair-text', '📦 Сколько: ' + x.qty));
   // Кому: раздают управляющий, владелец и снабженец
@@ -3266,6 +3449,55 @@ async function payPost(body, confirmText) {
   }
 }
 
+// «1 ч 15 мин» / «25 мин»
+function minText(m) {
+  const h = Math.floor(m / 60), r = m % 60;
+  return h ? `${h} ч` + (r ? ` ${r} мин` : '') : `${r} мин`;
+}
+
+// Окошко опоздания: когда пришёл, на сколько опоздал, что по правилам, поле «Штраф»
+function lateBox(name, s) {
+  const box = el('div', 'late');
+  const day = `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}`;
+  const head = el('div');
+  if (s.late > 0) {
+    head.append(document.createTextNode(`Опоздание ${day}: `), el('b', null, minText(s.late)));
+    box.appendChild(head);
+    box.appendChild(el('small', null, `пришёл(ла) ${s.came}, нужно к ${s.lateDue}${s.role ? ' · ' + s.role : ''}`));
+    box.appendChild(el('small', null, s.lateRule > 0
+      ? `по правилам: ${fmt(s.lateRule)} ₽ (${s.lateRule > PAY_HOUR() ? '2 часовые ставки' : '1 часовая ставка'})`
+      : 'больше часа: выговор, штраф на усмотрение управляющего и владельцев'));
+  } else {
+    head.append(document.createTextNode(`Штраф ${day}`));
+    box.appendChild(head);
+  }
+  if (s.fine > 0) box.appendChild(el('small', null, `записан штраф ${fmt(s.fine)} ₽`));
+  const row = el('div', 'adv');
+  const input = el('input');
+  input.inputMode = 'decimal'; input.placeholder = 'сумма'; input.setAttribute('aria-label', 'Сумма штрафа');
+  if (s.fine > 0) input.value = String(s.fine);
+  else if (s.lateRule > 0) input.value = String(s.lateRule);
+  const b = el('button', 'pay-btn light', s.fine > 0 ? 'Изменить штраф' : 'Записать штраф');
+  b.type = 'button';
+  b.addEventListener('click', () => {
+    const sum = num(input.value) || 0;
+    if (sum < 0) return alert_('Неверная сумма.');
+    if (!sum && !s.fine) return alert_('Напишите сумму штрафа.');
+    payPost({ action: 'fine', name, id: s.id, sum },
+      sum ? `Штраф ${name} за опоздание ${day}: ${fmt(sum)} ₽? Он вычтется из зарплаты.` : `Убрать штраф ${name} за ${day}?`);
+  });
+  row.append(input, b);
+  if (s.fine > 0) {
+    const del = el('button', 'pay-undo', 'убрать');
+    del.type = 'button';
+    del.addEventListener('click', () => payPost({ action: 'fine', name, id: s.id, sum: 0 }, `Убрать штраф ${name} за ${day}?`));
+    row.appendChild(del);
+  }
+  box.appendChild(row);
+  return box;
+}
+const PAY_HOUR = () => (config && config.pay && config.pay.hourRate) || 200;
+
 function unitLabel(u) {
   const k = u.key;
   if (k.startsWith('месяц:')) return `оклад · ${monthName(u.month)}`;
@@ -3316,6 +3548,20 @@ function renderBest(d) {
   return card;
 }
 
+// Приходящие: выдано сразу через «Калькулятор з/п» — в «к выплате» не входит
+function tempPayCard(d) {
+  if (!d.temp || !d.temp.length) return [];
+  const card = el('div', 'card temp-list');
+  const total = d.temp.reduce((a, x) => a + x.sum, 0);
+  card.appendChild(el('div', 'note', `Выдано сразу: ${fmt(total)} ₽`));
+  d.temp.forEach(x => {
+    const row = el('div');
+    row.append(el('b', null, `${ddmm(x.iso)} · ${x.name} — ${fmt(x.sum)} ₽`), el('small', null, x.label));
+    card.appendChild(row);
+  });
+  return [el('h2', 'sec', 'Приходящие'), card];
+}
+
 function renderPay(d) {
   const money = n => fmt(n) + ' ₽';
   const out = [];
@@ -3328,6 +3574,7 @@ function renderPay(d) {
   out.push(sum);
   if (!d.people.length) {
     out.push(el('div', 'loading-note', 'За этот период начислений нет.'));
+    out.push(...tempPayCard(d));
     if (d.best) out.push(renderBest(d));
     $('payBody').replaceChildren(...out);
     return;
@@ -3361,13 +3608,15 @@ function renderPay(d) {
       const info = el('div');
       info.appendChild(el('div', null, label));
       info.appendChild(el('div', 'pay-sum', money(u.total)));
-      if (u.carry > 0) info.appendChild(el('small', 'pay-carry', `минус с прошлой выплаты −${fmt(u.carry)} ₽ уже вычтен`));
+      if (u.carry > 0) info.appendChild(el('small', 'pay-carry', `минус с прошлой выплаты −${fmt(u.carry)} ₽ уже вычтен`));
+      if (u.fine > 0) info.appendChild(el('small', 'pay-fine', `штраф за опоздание −${fmt(u.fine)} ₽ уже вычтен`));
       const parts = [];
       if (u.base) parts.push(`часы ${fmt(u.base)}`);
       if (u.bonus) parts.push(`премия ${fmt(u.bonus)}`);
       if (u.senior) parts.push(`старший ${fmt(u.senior)}`);
       if (u.gis) parts.push(`2ГИС ${fmt(u.gis)}`);
       if (u.drinks) parts.push(`морсы ${fmt(u.drinks)}`);
+      if (u.sale) parts.push(`продажа морсов ${fmt(u.sale)}`);
       let small = parts.join(' + ');
       if (isMonth) small = `выплата ${u.payday}-го числа`;
       if (small) info.appendChild(el('small', null, small));
@@ -3430,6 +3679,10 @@ function renderPay(d) {
         box.appendChild(adv);
       }
 
+      // Опоздания: видно сразу, штраф вписывают вручную (расчёт зарплаты сам ничего не вычитает)
+      u.shifts.filter(s => s.late > 0 || s.fine > 0).sort((a, b) => (a.iso < b.iso ? -1 : 1))
+        .forEach(s => box.appendChild(lateBox(p.name, s)));
+
       // Нажал на строку — смены по дням
       if (u.shifts.length) {
         const det = el('div', 'pay-shifts');
@@ -3443,6 +3696,7 @@ function renderPay(d) {
           if (s.senior) bits.push(`старший ${fmt(s.senior)}`);
           if (s.gis) bits.push(`2ГИС ${fmt(s.gis)}`);
           if (s.drinks) bits.push(`морсы ${s.bottles} бут. = ${fmt(s.drinks)}`);
+          if (s.sale) bits.push(`продажа морсов ${fmt(s.sale)}`);
           det.appendChild(el('div', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}: ${fmt(s.total)} ₽ — ${bits.join(', ')}`));
         });
         line.addEventListener('click', () => { det.hidden = !det.hidden; });
@@ -3452,6 +3706,7 @@ function renderPay(d) {
     });
     out.push(card);
   });
+  out.push(...tempPayCard(d));
   // Сотрудник месяца — в конце списка
   if (d.best) out.push(renderBest(d));
   out.push(el('p', 'note', 'Зарплата смены выдаётся по понедельникам за прошлую неделю (пн–вс). Нажмите на неделю, чтобы увидеть смены. Отметки «Выплачено» — на листе «Выплаты».'));
@@ -3558,6 +3813,73 @@ async function castVote(name) {
 
 /* ---------- вкладка «Владельцы»: траты на бизнес ---------- */
 
+/* ---------- калькулятор з/п для приходящих ---------- */
+
+function openCalc() {
+  const sel = $('calcRole');
+  const roles = (config.roles || FALLBACK_ROLES).map(r => r.name);
+  if (sel.options.length !== roles.length) {
+    const keep = sel.value;
+    sel.textContent = '';
+    roles.forEach(n => sel.add(new Option(n, n)));
+    if (roles.includes(keep)) sel.value = keep;
+  }
+  if (!$('calcDate').value) $('calcDate').value = todayISO();
+  calcShow();
+}
+
+function calcNow() {
+  const P = config.pay || { hourRate: 200, bonusStep: 10000, bonusPizza: [[30000, 100]], bonusOther: [[30000, 100]] };
+  const role = $('calcRole').value;
+  const hours = paidHours($('calcFrom').value, $('calcTo').value);
+  const rev = num($('calcRev').value) || 0;
+  const base = hours * P.hourRate;
+  const bonus = rev > 0 ? revenueBonus(rev, !!roleInfo(role).pizza, P) : 0;
+  return { role, hours, rev, base, bonus, total: base + bonus };
+}
+
+function calcShow() {
+  const c = calcNow();
+  const box = $('calcRes');
+  box.textContent = '';
+  box.append(el('div', 'note', 'Выплатить'), el('div', 'big', `${fmt(c.total)} ₽`));
+  box.appendChild(kv(`Часы: ${c.hours} ч × ${fmt((config.pay || {}).hourRate || 200)} ₽`, `${fmt(c.base)} ₽`));
+  box.appendChild(kv(c.rev > 0 ? `Премия от выручки ${fmt(c.rev)} ₽` : 'Премия от выручки', c.rev > 0 ? `${fmt(c.bonus)} ₽` : '—'));
+  $('calcPay').textContent = c.total > 0 ? `Выдать з/п ${fmt(c.total)} ₽` : 'Выдать з/п';
+}
+['calcRole', 'calcFrom', 'calcTo', 'calcRev', 'calcDate'].forEach(id => {
+  $(id).addEventListener('input', calcShow);
+  $(id).addEventListener('change', calcShow);
+});
+
+$('calcPay').addEventListener('click', async () => {
+  const name = $('calcName').value.replace(/\s+/g, ' ').trim();
+  const c = calcNow();
+  if (name.length < 2) return alert_('Напишите имя.');
+  if (!(c.total > 0)) return alert_('Получилось 0 ₽ — проверьте время.');
+  const date = $('calcDate').value || todayISO();
+  if (!(await confirm_(`Выдать ${name} (${c.role}) ${fmt(c.total)} ₽ за ${ddmm(date)}?
+${$('calcFrom').value}–${$('calcTo').value}, ${c.hours} ч` + (c.bonus ? ` + премия ${fmt(c.bonus)} ₽` : '')))) return;
+  if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+  if (busy) return;
+  const b = $('calcPay');
+  setBusy(true);
+  btnPending(b, true);
+  try {
+    const res = await api({ action: 'tempPay', name, role: c.role, from: $('calcFrom').value, to: $('calcTo').value,
+      revenue: c.rev, date, total: c.total });
+    haptic('success');
+    $('calcName').value = ''; $('calcRev').value = '';
+    await alert_(`Готово: ${res.name} выдано ${fmt(res.total)} ₽. Записано на лист «Выплаты».`);
+  } catch (e) {
+    await alert_('Не получилось: ' + e.message);
+  } finally {
+    btnPending(b, false);
+    setBusy(false);
+    calcShow();
+  }
+});
+
 /* ---------- моя з/п: своя невыплаченная зарплата ---------- */
 
 let myPayData = null;   // { name, today, found, units: [{ key, from, to, month, total, paid, due, shifts }], due }
@@ -3605,6 +3927,7 @@ function renderMyPay() {
       if (u.key.startsWith('неделя:') && d.today <= u.to) left.appendChild(el('div', 'my-wait', 'неделя ещё идёт — сумма может вырасти'));
       if (u.paid > 0) left.appendChild(el('div', 'my-part', `уже выдано ${fmt(u.paid)} ₽ из ${fmt(u.total)} ₽`));
       if (u.carry > 0) left.appendChild(el('div', 'my-part', `вычтен аванс вперёд −${fmt(u.carry)} ₽`));
+      if (u.fine > 0) left.appendChild(el('div', 'my-part', `вычтен штраф за опоздание −${fmt(u.fine)} ₽`));
       line.append(left, el('b', 'my-sum', `${fmt(u.due)} ₽`));
       box.appendChild(line);
       if (u.shifts && u.shifts.length) {
@@ -3616,6 +3939,9 @@ function renderMyPay() {
           if (s.senior) bits.push(`старший ${fmt(s.senior)}`);
           if (s.gis) bits.push(`2ГИС ${fmt(s.gis)}`);
           if (s.drinks) bits.push(`морсы ${s.bottles} бут. = ${fmt(s.drinks)}`);
+          if (s.sale) bits.push(`продажа морсов ${fmt(s.sale)}`);
+          if (s.late > 0) bits.push(`опоздание ${minText(s.late)}`);
+          if (s.fine > 0) bits.push(`штраф −${fmt(s.fine)}`);
           const row = el('div', 'my-shift');
           row.append(el('b', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}${s.role ? ' · ' + s.role : ''} — ${fmt(s.total)} ₽`),
             el('small', null, bits.join(' + ')));
@@ -3696,32 +4022,49 @@ function askStaffName(s) {
   haptic('light');
   const body = $('itemSheetBody');
   body.textContent = '';
-  body.appendChild(el('h2', null, 'Изменить имя'));
+  body.appendChild(el('h2', null, 'Изменить имя или объединить'));
   body.appendChild(el('div', 'grp', s.name));
   const inp = el('input');
   inp.value = s.name; inp.maxLength = 100; inp.autocomplete = 'off';
   inp.setAttribute('aria-label', 'Новое имя');
   body.appendChild(inp);
   body.appendChild(el('div', 'note', 'Имя поменяется везде: в списке сотрудников, старых отчётах, зарплате, выплатах, голосовании и в Google Таблице.'));
+  // Один и тот же человек записан два раза (например, «Тимур» и «Алексеев Тимур») — объединить
+  const twin = el('select', 'full');
+  twin.setAttribute('aria-label', 'Это тот же человек, что');
+  twin.style.textAlign = 'left'; twin.style.textAlignLast = 'left';
+  twin.add(new Option('Нет, другого такого нет', ''));
+  (staffData ? staffData.staff : []).filter(x => x.name !== s.name)
+    .forEach(x => twin.add(new Option(x.name + (x.pos ? ' · ' + x.pos : ''), x.name)));
+  twin.addEventListener('change', () => { if (twin.value) inp.value = twin.value; });
+  body.append(el('div', 'note', 'Это тот же человек, что… (объединить)'), twin);
   const ok = el('button', 'btn', 'Сохранить');
   ok.type = 'button';
   ok.addEventListener('click', async () => {
     const name = inp.value.replace(/\s+/g, ' ').trim();
     if (name.length < 2) return alert_('Напишите новое имя.');
     if (name === s.name) return closeItem();
-    if (!(await confirm_(`Поменять имя везде?
+    const low = x => x.toLowerCase().replace(/ё/g, 'е');
+    const same = (staffData ? staffData.staff : []).find(x => x.name !== s.name && low(x.name) === low(name));
+    const merge = !!same;
+    if (merge) {
+      if (!(await confirm_(`Объединить «${s.name}» с «${same.name}»?
+
+Это один человек: его смены, выплаты, голоса и остальное перейдут на «${same.name}», а «${s.name}» исчезнет из списка. Отменить это нельзя.`))) return;
+    } else if (!(await confirm_(`Поменять имя везде?
 «${s.name}» → «${name}»`))) return;
     if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
     if (busy) return;
     setBusy(true);
     btnPending(ok, true);
     try {
-      staffData = await api({ action: 'staffRename', name: s.name, newName: name });
+      staffData = await api({ action: 'staffRename', name: s.name, newName: merge ? same.name : name, merge });
       tabCachePut('staff', staffData);
       closeItem();
       renderStaffList();
       haptic('success');
-      await alert_('Готово. Имя изменено везде. Чтобы подсказки в отчёте обновились, закройте и откройте приложение.');
+      await alert_((merge ? 'Готово. Сотрудники объединены.' : 'Готово. Имя изменено везде.') +
+        ' Чтобы подсказки в отчёте обновились, закройте и откройте приложение.');
     } catch (e) {
       btnPending(ok, false);
       await alert_('Не получилось: ' + e.message);
@@ -5035,6 +5378,11 @@ function startEdit(ed) {
     .forEach(k => put(k, r[k]));
   put('gis2', r.gis2 ? r.gis2 : '');
   put('checks', r.checks ? r.checks : '');
+  put('drinkSold', r.drinkSold ? r.drinkSold : '');
+  drinkPrev = r.drinkPrev == null ? null : Number(r.drinkPrev);
+  // Остаток вписывали вручную, только если он не равен посчитанному
+  const autoLeft = Math.max(0, (drinkPrev || 0) + (r.drinksTotal || 0) - (r.drinkSold || 0));
+  put('drinkLeft', r.drinkLeft != null && r.drinkLeft !== autoLeft ? r.drinkLeft : '');
 
   $('drinks').textContent = '';
   (r.drinks || []).forEach(x => addDrink(x.name, x.count));
@@ -5120,6 +5468,7 @@ function applyMyName(name) {
 function applyLast(last) {
   if (!last) return;
   $('lastInfo').textContent = `Прошлый отчёт: ${ddmm(last.date)}${last.author ? ', ' + last.author : ''}`;
+  if (!editing) { drinkPrev = last.drinkLeft == null || last.drinkLeft === '' ? null : Number(last.drinkLeft); recalc(); }
   if (last.cashEnd != null && last.cashEnd !== '') {
     $('cashStartHint').textContent = `по прошлому отчёту: ${fmt(Number(last.cashEnd))} ₽`;
     if (fields.cashStart.value === '') { fields.cashStart.value = last.cashEnd; recalc(); }
@@ -5141,6 +5490,8 @@ function markBad() {
       if (el.id === 'gis2') isBad = intIn(el, 50);
       if (el.id === 'checks') isBad = intIn(el, 100000);
       if (el.closest('#drinks')) isBad = intIn(el, 500);
+      if (el.id === 'drinkSold') isBad = intIn(el, 2000);
+      if (el.id === 'drinkLeft') isBad = intIn(el, 10000);
     }
     el.classList.toggle('bad', isBad);
     bad = bad || isBad;
