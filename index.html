@@ -327,6 +327,7 @@
   .pay-done.over { color: var(--warn); }
   .pay-done { color: var(--ok); font-size: 14px; font-weight: 600; white-space: nowrap; }
   .pay-extra { color: var(--warn); font-size: 12px; font-weight: 600; }
+  .pay-unknown { margin: 6px 0 2px; color: var(--hint); }
   .pay-undo { position: relative; background: none; border: 0; padding: 2px 0; font: inherit; font-size: 14px; color: var(--hint); text-decoration: underline; }
   .pay-shifts { font-size: 14px; color: #555; padding: 6px 0 0; }
   .pay-shifts div { padding: 2px 0; }
@@ -991,7 +992,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-05.54';
+const APP_VERSION = '2026-11-07.55';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 const initData = tg ? tg.initData : '';
@@ -3435,6 +3436,52 @@ async function loadPay(from, to) {
   }
 }
 
+// Зарплата: имя из отчёта, которого нет в «Сотрудниках», — объединить с сотрудником (смены, морсы, выплаты перейдут к нему)
+function askPayMerge(name, staff) {
+  haptic('light');
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, 'Объединить'));
+  body.appendChild(el('div', 'grp', name));
+  body.appendChild(el('div', 'note', 'Это тот же человек, что…'));
+  const sel = el('select', 'full');
+  sel.setAttribute('aria-label', 'Это тот же человек, что');
+  sel.style.textAlign = 'left'; sel.style.textAlignLast = 'left';
+  sel.add(new Option('Выберите сотрудника', ''));
+  staff.filter(n => n !== name).forEach(n => sel.add(new Option(n, n)));
+  body.appendChild(sel);
+  const ok = el('button', 'btn', 'Объединить');
+  ok.type = 'button';
+  ok.addEventListener('click', async () => {
+    const to = sel.value;
+    if (!to) return alert_('Выберите сотрудника.');
+    if (!(await confirm_(`Объединить «${name}» с «${to}»?
+
+Его смены, морсы, выплаты и остальное перейдут на «${to}». Отменить это нельзя.`))) return;
+    if (!inTg || !apiReady) return alert_('Откройте приложение через бота в Телеграме.');
+    if (busy) return;
+    setBusy(true);
+    btnPending(ok, true);
+    try {
+      staffData = await api({ action: 'staffRename', name, newName: to, merge: true });
+      tabCachePut('staff', staffData);
+      closeItem();
+      haptic('success');
+      if (payCur) loadPay(payCur.from, payCur.to);
+    } catch (e) {
+      btnPending(ok, false);
+      await alert_('Не получилось: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(ok, close);
+  $('itemSheet').hidden = false;
+}
+
 // Действия на вкладке «Зарплата»: выплата, аванс, отмена, сотрудник месяца
 async function payPost(body, confirmText) {
   if (payBusy || !payCur) return;
@@ -3608,6 +3655,16 @@ function renderPay(d) {
     if (p.due > 0 && over > 0) right.appendChild(el('small', null, `вперёд −${money(over)}`));
     head.append(left, right);
     card.appendChild(head);
+    // Имени нет в «Сотрудниках» (например, осталось в отчёте с ошибкой) — владелец объединяет с нужным человеком
+    if (p.unknown && shownBoss && (d.staff || []).length) {
+      const row = el('div', 'pay-unknown');
+      row.appendChild(el('small', null, 'Такого имени нет в «Сотрудниках». '));
+      const b = el('button', 'pay-undo', 'Объединить с…');
+      b.type = 'button';
+      b.addEventListener('click', () => askPayMerge(p.name, d.staff));
+      row.appendChild(b);
+      card.appendChild(row);
+    }
 
     p.units.forEach(u => {
       const label = unitLabel(u);
