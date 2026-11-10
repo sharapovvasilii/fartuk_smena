@@ -1015,7 +1015,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-07.58';
+const APP_VERSION = '2026-11-10.59';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -1922,7 +1922,14 @@ function paidHours(from, to) {
   return Math.max(0, (e - s) / 60);
 }
 
-function revenueBonus(rev, pizza, P) {
+// Премия за часы человека: премия смены ÷ 11 × часы (не больше полной), до 10 ₽ — как revenueBonus_ в Code.gs
+function revenueBonus(rev, pizza, P, hours) {
+  const fullH = P.bonusFullHours || 11, step = P.bonusRound || 10;
+  const h = Math.min(Math.max(hours || 0, 0), fullH);
+  return Math.round(fullRevenueBonus(rev, pizza, P) * h / fullH / step) * step;
+}
+
+function fullRevenueBonus(rev, pizza, P) {
   const table = pizza ? P.bonusPizza : P.bonusOther;
   let total = 0;
   for (let t = table[0][0]; t <= Math.min(rev, 1e8); t += P.bonusStep) {
@@ -1946,7 +1953,7 @@ function updatePayHints(r) {
     row.pay.textContent = '';
     if (!P) { row.pay.textContent = h ? `${h} ч` : ''; return; }
     const info = roleInfo(row.role.value);
-    const total = h * P.hourRate + revenueBonus(r.revenue, !!info.pizza, P) +
+    const total = h * P.hourRate + revenueBonus(r.revenue, !!info.pizza, P, h) +
       (name && fields.senior.value === name ? P.seniorBonus : 0) +
       (info.admin ? gis * P.gisBonus : 0) + (name && drinks[name] ? drinks[name] * P.drinkBonus : 0) +
       (info.admin && admins ? Math.round(z0(r.drinkSold) * (P.drinkSaleBonus || 0) / admins * 100) / 100 : 0);
@@ -2258,7 +2265,7 @@ function myTgId() {
 // Телефон помнит последний ответ вкладок «Инвентаризация», «Ремонт», «Затраты»:
 // показываем сразу, свежее подтягиваем в фоне. Только для этого же человека.
 const TAB_KEYS = { inv: 'fartuk-inv-v1', repair: 'fartuk-repairs-v1', own: 'fartuk-own-v1', bills: 'fartuk-bills-v1',
-  staff: 'fartuk-staff-v1', mypay: 'fartuk-mypay-v1' };
+  staff: 'fartuk-staff-v1', mypay: 'fartuk-mypay-v2' };
 function tabCacheGet(tab) {
   const c = storage(ls => JSON.parse(ls.getItem(TAB_KEYS[tab]) || 'null'));
   return c && c.uid === myTgId() ? c.data : null;
@@ -3137,7 +3144,7 @@ function pickPreset(p, quiet) {
 }
 
 // Телефон помнит уже открытые периоды: показываем их сразу, а свежие цифры подтягиваем в фоне
-const REV_KEY = 'fartuk-rev-v1';
+const REV_KEY = 'fartuk-rev-v2';
 const REV_KEEP = 12;
 
 function revCacheAll() {
@@ -3402,7 +3409,7 @@ const PAY_PRESETS = [
   ['today', 'Сегодня'], ['yesterday', 'Вчера'], ['week', 'Эта неделя'], ['lastweek', 'Прошлая неделя'],
   ['month', 'Этот месяц'], ['lastmonth', 'Прошлый месяц'], ['custom', 'Свой период'],
 ];
-const PAY_CACHE = 'fartuk-pay-v1';
+const PAY_CACHE = 'fartuk-pay-v2';
 let payLoaded = false;
 let paySeq = 0;
 let payCur = null;          // { from, to } — какой период на экране
@@ -3927,7 +3934,7 @@ function calcNow() {
   const hours = paidHours($('calcFrom').value, $('calcTo').value);
   const rev = num($('calcRev').value) || 0;
   const base = hours * P.hourRate;
-  const bonus = rev > 0 ? revenueBonus(rev, !!roleInfo(role).pizza, P) : 0;
+  const bonus = rev > 0 ? revenueBonus(rev, !!roleInfo(role).pizza, P, hours) : 0;
   return { role, hours, rev, base, bonus, total: base + bonus };
 }
 
@@ -3937,7 +3944,7 @@ function calcShow() {
   box.textContent = '';
   box.append(el('div', 'note', 'Выплатить'), el('div', 'big', `${fmt(c.total)} ₽`));
   box.appendChild(kv(`Часы: ${c.hours} ч × ${fmt((config.pay || {}).hourRate || 200)} ₽`, `${fmt(c.base)} ₽`));
-  box.appendChild(kv(c.rev > 0 ? `Премия от выручки ${fmt(c.rev)} ₽` : 'Премия от выручки', c.rev > 0 ? `${fmt(c.bonus)} ₽` : '—'));
+  box.appendChild(kv(c.rev > 0 ? `Премия от выручки ${fmt(c.rev)} ₽ · за ${Math.min(c.hours, (config.pay || {}).bonusFullHours || 11)} ч из ${(config.pay || {}).bonusFullHours || 11}` : 'Премия от выручки', c.rev > 0 ? `${fmt(c.bonus)} ₽` : '—'));
   $('calcPay').textContent = c.total > 0 ? `Выдать з/п ${fmt(c.total)} ₽` : 'Выдать з/п';
 }
 ['calcRole', 'calcFrom', 'calcTo', 'calcRev', 'calcDate'].forEach(id => {
