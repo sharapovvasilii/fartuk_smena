@@ -354,6 +354,7 @@
   .pay-undo { position: relative; background: none; border: 0; padding: 2px 0; font: inherit; font-size: 14px; color: var(--hint); text-decoration: underline; }
   .pay-shifts { font-size: 14px; color: var(--text-2); padding: 6px 0 0; }
   .pay-shifts div { padding: 2px 0; }
+  .pay-shift-row .pay-undo { margin-left: 4px; }
   .adv { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
   .drink-sale { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
   .drink-calc { font-size: 14px; color: var(--hint); padding: 4px 0; }
@@ -1015,7 +1016,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-10.59';
+const APP_VERSION = '2026-11-10.60';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -3516,6 +3517,56 @@ function askPayMerge(name, staff) {
   $('itemSheet').hidden = false;
 }
 
+// Владелец исправляет смену из вкладки «Зарплата»: пришёл, ушёл, должность. Меняется сам отчёт, зарплата пересчитывается.
+function askShiftEdit(name, s) {
+  haptic('light');
+  const day = `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}`;
+  const body = $('itemSheetBody');
+  body.textContent = '';
+  body.appendChild(el('h2', null, 'Исправить смену'));
+  body.appendChild(el('div', 'grp', `${name} · ${day}`));
+  body.appendChild(el('div', 'note', `Сейчас в отчёте: ${s.role}, ${s.from}–${s.to}`));
+  const roleSel = el('select', 'full');
+  roleSel.setAttribute('aria-label', 'Должность');
+  roleSel.style.textAlign = 'left'; roleSel.style.textAlignLast = 'left';
+  ((config && config.roles) || []).map(r => r.name).forEach(n => roleSel.add(new Option(n, n)));
+  if (![...roleSel.options].some(o => o.value === s.role)) roleSel.add(new Option(s.role, s.role));
+  roleSel.value = s.role;
+  const from = el('input'); from.type = 'time'; from.value = s.from;
+  const to = el('input'); to.type = 'time'; to.value = s.to;
+  const lab = (t, x) => { const l = el('label', 'row'); l.append(el('span', null, t), x); return l; };
+  const hint = el('div', 'note');
+  const upd = () => {
+    const h = paidHours(from.value, to.value);
+    hint.textContent = h > 0 ? `Будет оплачено ${h} ч. Зарплата пересчитается сама.` : 'Проверьте время.';
+  };
+  from.addEventListener('input', upd); to.addEventListener('input', upd);
+  upd();
+  body.append(el('div', 'note', 'Должность'), roleSel, lab('Пришёл', from), lab('Ушёл', to), hint);
+  const ok = el('button', 'btn', 'Сохранить');
+  ok.type = 'button';
+  ok.addEventListener('click', async () => {
+    if (!from.value || !to.value) return alert_('Укажите время: пришёл и ушёл.');
+    if (!(paidHours(from.value, to.value) > 0)) return alert_('Получилось 0 часов — проверьте время.');
+    if (from.value === s.from && to.value === s.to && roleSel.value === s.role) return closeItem();
+    const text = `Исправить смену ${name} за ${day}?
+
+Было: ${s.role}, ${s.from}–${s.to}
+Станет: ${roleSel.value}, ${from.value}–${to.value}
+
+Отчёт изменится, в общий чат уйдёт сообщение об исправлении.`;
+    if (!(await confirm_(text))) return;
+    closeItem();
+    payPost({ action: 'shiftEdit', id: s.id, name, role: s.role, oldFrom: s.from, oldTo: s.to,
+      newRole: roleSel.value, newFrom: from.value, newTo: to.value });
+  });
+  const close = el('button', 'btn btn-light', 'Закрыть');
+  close.type = 'button';
+  close.addEventListener('click', closeItem);
+  body.append(ok, close);
+  $('itemSheet').hidden = false;
+}
+
 // Действия на вкладке «Зарплата»: выплата, аванс, отмена, сотрудник месяца
 async function payPost(body, confirmText) {
   if (payBusy || !payCur) return;
@@ -3797,7 +3848,17 @@ function renderPay(d) {
           if (s.gis) bits.push(`2ГИС ${fmt(s.gis)}`);
           if (s.drinks) bits.push(`морсы ${s.bottles} бут. = ${fmt(s.drinks)}`);
           if (s.sale) bits.push(`продажа морсов ${fmt(s.sale)}`);
-          det.appendChild(el('div', null, `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}: ${fmt(s.total)} ₽ — ${bits.join(', ')}`));
+          const txt = `${weekday(s.iso)} ${dmyFull(s.iso).slice(0, 5)}: ${fmt(s.total)} ₽ — ${bits.join(', ')}`;
+          // Владелец может исправить время и должность в смене (если в отчёте ошиблись)
+          if (shownBoss && s.role && s.from) {
+            const row = el('div', 'pay-shift-row');
+            row.appendChild(el('span', null, txt + ' '));
+            const ed = el('button', 'pay-undo', 'изменить');
+            ed.type = 'button';
+            ed.addEventListener('click', e => { e.stopPropagation(); askShiftEdit(p.name, s); });
+            row.appendChild(ed);
+            det.appendChild(row);
+          } else det.appendChild(el('div', null, txt));
         });
         line.addEventListener('click', () => { det.hidden = !det.hidden; });
         box.appendChild(det);
