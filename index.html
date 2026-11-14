@@ -589,6 +589,10 @@
   .day:first-child { border-top: 0; }
   .day-detail { font-size: 14px; color: var(--text-2); padding: 0 0 8px; }
   .loading-note { text-align: center; color: var(--hint); padding: 30px 0; }
+  /* Кнопка «Добавить на экран телефона» — внизу экрана, над версией */
+  .home-add { margin-top: 20px; }
+  .home-add .btn { margin: 0; }
+  .home-add small { display: block; text-align: center; color: var(--hint); font-size: 12px; margin-top: 6px; }
   .ver-note { text-align: center; color: var(--hint); font-size: 12px; padding: 24px 0 8px; }
 
   /* Экраны загрузки и доступа — большая белая карточка на весь экран */
@@ -987,6 +991,12 @@
   <div id="revBody"></div>
 </main>
 
+<!-- Иконка приложения на экране телефона (Telegram 8.0+). Видна, пока иконку не добавили -->
+<div class="home-add" id="homeAdd" hidden>
+  <button type="button" class="btn btn-light" id="homeAddBtn">Добавить на экран телефона</button>
+  <small>Приложение будет открываться с иконки, как обычное</small>
+</div>
+
 <!-- Версия — внизу любого экрана: видно, что загрузилось обновление -->
 <div class="ver-note" id="verNote"></div>
 
@@ -1016,7 +1026,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-10.60';
+const APP_VERSION = '2026-11-14.61';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -2170,6 +2180,7 @@ function clearDraft() { storage(ls => ls.removeItem(DRAFT_KEY)); }
 
 // Какой экран сейчас открыт: 'form', 'order', 'buyer', 'revenue', 'salary' или null
 let screen = null;
+let homeAddable = false;   // можно ли предложить иконку на экран телефона (см. «иконка на экране телефона»)
 
 function showScreen(name) {
   screen = name;
@@ -2186,6 +2197,7 @@ function showScreen(name) {
   $('staffScreen').hidden = name !== 'staff';
   $('myPayScreen').hidden = name !== 'mypay';
   $('calcScreen').hidden = name !== 'calc';
+  $('homeAdd').hidden = !name || !homeAddable;   // на экранах загрузки и доступа кнопку не показываем
   updateMainButton();
   // В списке закупки товары перетаскивают пальцем — отключаем «смахнуть вниз, чтобы закрыть»
   try {
@@ -5763,6 +5775,22 @@ if (tg) {
     try { if (tg.isVersionAtLeast('7.10')) tg.setBottomBarColor(BG); } catch (e) {}
   }
 }
+/* ---------- иконка на экране телефона ----------
+   Telegram 8.0+: addToHomeScreen() предлагает положить иконку бота на экран «Домой».
+   checkHomeScreenStatus() отвечает: unsupported — телефон не умеет, added — уже есть,
+   missed — можно добавить, unknown — Telegram не знает (показываем кнопку). */
+function setHomeAddable(on) {
+  homeAddable = on;
+  $('homeAdd').hidden = !screen || !on;
+}
+if (inTg && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && tg.addToHomeScreen) {
+  try {
+    tg.checkHomeScreenStatus(status => setHomeAddable(status === 'missed' || status === 'unknown'));
+  } catch (e) {}
+  $('homeAddBtn').addEventListener('click', () => { try { tg.addToHomeScreen(); } catch (e) {} });
+  tg.onEvent('homeScreenAdded', () => setHomeAddable(false));
+}
+
 if (inTg && tg.MainButton) {
   tg.MainButton.onClick(() => (screen === 'order' ? submitOrder() : submit()));
 } else {
