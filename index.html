@@ -365,7 +365,9 @@
   .temp-list div { padding: 4px 0; font-size: 14px; }
   .temp-list small { display: block; color: var(--hint); font-size: 12px; }
   /* Опоздание и штраф (вкладка «Зарплата») */
-  .late { background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 14px; }
+  .late { position: relative; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 14px; }
+  .late-x { position: absolute; top: 0; right: 0; width: 36px; height: 36px; border: 0; background: none; color: var(--hint); font-size: 22px; line-height: 1; cursor: pointer; }
+  .late-x:active { opacity: .6; }
   .late b { color: var(--warn); }
   .late small { display: block; color: var(--hint); font-size: 12px; margin-top: 2px; }
   .late .adv { margin-top: 6px; align-items: center; }
@@ -1026,7 +1028,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-16.64';
+const APP_VERSION = '2026-11-16.65';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -3649,11 +3651,11 @@ function lateBox(name, s) {
     row.appendChild(del);
   }
   if (shownBoss) {
-  const rm = el('button', 'pay-undo', 'удалить окошко');
-  rm.type = 'button';
-  rm.addEventListener('click', () => payPost({ action: 'lateHide', name, id: s.id },
-    `Удалить окошко ${name} за ${day}?${s.fine > 0 ? ' Записанный штраф тоже уберётся.' : ''}`));
-  row.appendChild(rm);
+    const rm = el('button', 'late-x', '×');
+    rm.type = 'button'; rm.setAttribute('aria-label', 'Удалить окошко');
+    rm.addEventListener('click', () => payPost({ action: 'lateHide', name, id: s.id },
+      `Удалить окошко ${name} за ${day}?${s.fine > 0 ? ' Записанный штраф тоже уберётся.' : ''}`));
+    box.appendChild(rm);
   }
   box.appendChild(row);
   return box;
