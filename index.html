@@ -1026,7 +1026,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-14.61';
+const APP_VERSION = '2026-11-16.64';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -2249,6 +2249,8 @@ function gate(state, detail) {
     if (u && !name.value) name.value = [u.last_name, u.first_name].filter(Boolean).join(' ');
     name.hidden = false;
     button('Запросить доступ', requestAccess);
+  } else if (state === 'outside') {
+    set('📱', 'Откройте через бота', 'Приложение работает только внутри Телеграма. Откройте бота «Фартук · Смена» и нажмите кнопку меню.');
   } else if (state === 'ожидает') {
     set('⏳', 'Запрос отправлен', 'Владелец получил запрос. Когда он подтвердит, бот пришлёт сообщение — тогда нажмите «Проверить».');
     button('Проверить', init);
@@ -3641,10 +3643,17 @@ function lateBox(name, s) {
   });
   row.append(input, b);
   if (s.fine > 0) {
-    const del = el('button', 'pay-undo', 'убрать');
+    const del = el('button', 'pay-undo', 'убрать штраф');
     del.type = 'button';
     del.addEventListener('click', () => payPost({ action: 'fine', name, id: s.id, sum: 0 }, `Убрать штраф ${name} за ${day}?`));
     row.appendChild(del);
+  }
+  if (shownBoss) {
+  const rm = el('button', 'pay-undo', 'удалить окошко');
+  rm.type = 'button';
+  rm.addEventListener('click', () => payPost({ action: 'lateHide', name, id: s.id },
+    `Удалить окошко ${name} за ${day}?${s.fine > 0 ? ' Записанный штраф тоже уберётся.' : ''}`));
+  row.appendChild(rm);
   }
   box.appendChild(row);
   return box;
@@ -5803,6 +5812,7 @@ if (inTg && tg.MainButton) {
 
 // В Телеграме форма откроется только после проверки доступа
 if (inTg && apiReady) init();
+else if (apiReady) gate('outside');   // в обычном браузере форму не показываем
 else showForm(true);
 </script>
 </body>
