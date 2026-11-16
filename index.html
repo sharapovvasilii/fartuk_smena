@@ -1028,7 +1028,7 @@ const DEFAULT_ROWS = ['Администратор', 'Пиццмейкер', 'П�
 /* ============================================= */
 
 // Версия этого файла — видна внизу вкладки «Выручка», чтобы проверить, что обновление дошло
-const APP_VERSION = '2026-11-16.65';
+const APP_VERSION = '2026-11-16.66';
 // Цвет из палитры (:root в <style>) — для Телеграма, которому нужен сам цвет, а не имя
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // iPhone показывает нажатие (:active) только если на странице слушают касания
@@ -3654,7 +3654,7 @@ function lateBox(name, s) {
     const rm = el('button', 'late-x', '×');
     rm.type = 'button'; rm.setAttribute('aria-label', 'Удалить окошко');
     rm.addEventListener('click', () => payPost({ action: 'lateHide', name, id: s.id },
-      `Удалить окошко ${name} за ${day}?${s.fine > 0 ? ' Записанный штраф тоже уберётся.' : ''}`));
+      `Удалить штраф ${name} за ${day}?`));
     box.appendChild(rm);
   }
   box.appendChild(row);
